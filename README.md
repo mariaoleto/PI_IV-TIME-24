@@ -1,11 +1,16 @@
 # ☀️ Solis
->
+
+> Aplicativo mobile de gestão de energia solar compartilhada para comunidades de geração distribuída.
 
 ---
 
 ## 📋 Descrição do Projeto
 
+O **Solis** é um aplicativo mobile desenvolvido como projeto acadêmico na disciplina **Projeto Integrador 4** do curso de Engenharia de Software da PUC-Campinas (2026).
 
+A proposta simula uma plataforma de gestão de energia solar compartilhada entre membros de um consórcio de geração distribuída — como vizinhos, condomínios ou pequenas comunidades rurais que dividem os créditos de uma mesma usina solar. O aplicativo calcula, com base na cota de participação de cada membro, os créditos de energia gerados, o consumo individual e a economia estimada, centralizando essas informações em um painel simples e acessível.
+
+> ⚠️ Todos os dados de geração e consumo utilizados no sistema são fictícios/simulados. O sistema não realiza integração real com equipamentos, distribuidoras de energia ou sistemas financeiros externos.
 
 ---
 
@@ -21,8 +26,6 @@
 - **Relatórios Exportáveis** — Geração de relatório mensal por membro para prestação de contas da cooperativa.
 - **Simulador de Novo Membro** — Simulação de economia estimada para um novo interessado, com base no percentual de cota e consumo médio informado.
 - **Indicador de Sustentabilidade** — Cálculo do CO2 evitado com base na energia gerada.
-
-> ⚠️ Todos os dados de geração e consumo utilizados no sistema são fictícios/simulados. O sistema não realiza integração real com equipamentos, distribuidoras de energia ou sistemas financeiros externos.
 
 ---
 
@@ -45,6 +48,12 @@
 | Node.js (LTS) | Runtime JavaScript para o servidor |
 | TypeScript / JavaScript | Linguagens de desenvolvimento |
 
+### Frontend (Mobile)
+| Tecnologia | Descrição |
+|---|---|
+| Flutter | Framework de desenvolvimento mobile |
+| Dart | Linguagem de programação |
+
 ### Banco de Dados
 | Tecnologia | Descrição |
 |---|---|
@@ -64,9 +73,12 @@
 Certifique-se de ter instalado em sua máquina:
 
 - [Node.js LTS](https://nodejs.org/)
+- [Flutter SDK](https://docs.flutter.dev/get-started/install)
+- [Dart SDK](https://dart.dev/get-dart) (incluído no Flutter)
 - [MongoDB](https://www.mongodb.com/try/download/community) (instância local ou cluster no MongoDB Atlas)
 - [JDK (Java Development Kit)](https://www.oracle.com/java/technologies/downloads/)
 - [Git](https://git-scm.com/)
+- Um emulador Android/iOS ou dispositivo físico conectado
 
 ---
 
@@ -117,6 +129,24 @@ cd servidor-java
 
 ---
 
+### 5. Configurar e executar o Aplicativo Mobile
+
+```bash
+# Acesse a pasta do frontend
+cd mobile
+
+# Instale as dependências do Flutter
+flutter pub get
+
+# Verifique se há um emulador rodando ou dispositivo conectado
+flutter devices
+
+# Execute o aplicativo
+flutter run
+```
+
+---
+
 ## 📁 Estrutura do Repositório
 
 ```text
@@ -135,7 +165,7 @@ cd servidor-java
 |---|---|
 | Instituição | PUC-Campinas |
 | Curso | Engenharia de Software |
-| Disciplina | Projeto Integrador 4 |
+| Disciplina | |
 | Ano | 2026 |
 | Professor Orientador | |
 | Repositório | |
