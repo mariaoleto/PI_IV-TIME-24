@@ -8,7 +8,7 @@
 
 O **Solis** é um aplicativo mobile desenvolvido como projeto acadêmico na disciplina **Projeto Integrador 4** do curso de Engenharia de Software da PUC-Campinas (2026).
 
-A proposta simula uma plataforma de gestão de energia solar compartilhada entre membros de um consórcio de geração distribuída — como vizinhos, condomínios ou pequenas comunidades rurais que dividem os créditos de uma mesma usina solar. O aplicativo calcula, com base na cota de participação de cada membro, os créditos de energia gerados, o consumo individual e a economia estimada, centralizando essas informações em um painel simples e acessível.
+A proposta simula uma plataforma de gestão de energia solar compartilhada entre membros de um consórcio de geração distribuída, como vizinhos, condomínios ou pequenas comunidades rurais que dividem os créditos de uma mesma usina solar. O aplicativo calcula, com base na cota de participação de cada membro, os créditos de energia gerados, o consumo individual e a economia estimada, centralizando essas informações em um painel simples e acessível.
 
 > ⚠️ Todos os dados de geração e consumo utilizados no sistema são fictícios/simulados. O sistema não realiza integração real com equipamentos, distribuidoras de energia ou sistemas financeiros externos.
 
