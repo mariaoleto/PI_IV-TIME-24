@@ -1,4 +1,4 @@
-// Autora: Maria Júlia Lazarini Oleto
+// autora: Maria Júlia Lazarini Oleto
 
 // significado do arquivo:
 // geracao dos modelos de dados (schemas)
@@ -59,14 +59,15 @@ const consumosMensaisSchema = new Schema(
     membro_id: { type: Schema.Types.ObjectId, required: true, index: true },
     usina_id: { type: Schema.Types.ObjectId, required: true, index: true },
     mes_referencia: { type: String, required: true, index: true },
+    consumo_kwh: { type: Number, required: true }
   },
   opcoesFlexiveis,
 );
 
 // exporta os modelos 
 export const GeracaoMensal = mongoose.model(
-  "GeracaoMensal", 
-  geracaoMensalSchema, 
+  "GeracaoMensal",
+  geracaoMensalSchema,
   "geracao_mensal",
 );
 export const Credito = mongoose.model("Credito", creditosSchema, "creditos");

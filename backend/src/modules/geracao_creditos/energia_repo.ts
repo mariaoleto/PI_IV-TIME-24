@@ -2,6 +2,7 @@
 
 // significado do arquivo:
 // centraliza o acesso ao banco 
+// auxilia na pesquisa e atualizacao de informacoes e construcao dos resultados 
 
 import mongoose from "mongoose";
 import {
