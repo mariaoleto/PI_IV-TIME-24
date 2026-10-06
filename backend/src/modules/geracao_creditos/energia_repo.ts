@@ -10,9 +10,21 @@ import {
   Credito,
   ConsumosMensais,
   GeracaoMensal,
+  Membro,
 } from "./energia_model";
 
 export type DocumentoFlexivel = Record<string, unknown>;
+
+// tipo que representa documento de cota com membro 
+export type CotaComMembro = DocumentoFlexivel & {
+  _id?: unknown;
+  cota_id?: unknown;
+  membro_id?: unknown;
+  usina_id?: unknown;
+  percentual?: unknown;
+  tarifa_kwh?: unknown;
+  nome_membro: string;
+}
 
 // filtro por ano e id da usina
 type FiltroBase = {
@@ -48,9 +60,48 @@ export function buscarCotaMaisRecente(parametros: {
     filtro.membro_id = idObjeto(parametros.membroId, "membro_id");
   }
 
-  return Cota.findOne(filtro)
-    .sort({ percentual: -1, data_inicio: -1 })
-    .lean<DocumentoFlexivel>();
+  return Cota.findOne(filtro).sort({
+    percentual: -1, data_inicio: -1
+  }).lean<DocumentoFlexivel>(); // lean() impede o mongoose de criar um documento mock
+}
+
+// busca e retorna uma promise de todas as cotas com os membros 
+export async function buscarTodasCotasComMembros(
+  usina_Id?: string,
+  membro_Id?: string,
+): Promise<CotaComMembro[]> {
+  const filtro: Record<string, unknown> = {};
+
+  if (usina_Id) {
+    filtro.usina_id = idObjeto(usina_Id, "usina_id");
+  }
+  if (membro_Id) {
+    filtro.membro_id = idObjeto(membro_Id, "membro_id");
+  }
+
+  // busca as cotas com os percentuais em ordem decrescente
+  const cotas = await Cota.find(filtro).sort({
+    percentual: -1
+  }).lean<DocumentoFlexivel[]>();
+
+  // busca os ids dos membros com os ids das cotas
+  // busca os nomes de acordo com os ids
+  const membrosIds = cotas.map((c) => c.membro_id);
+  const membros = await Membro.find({
+    _id: { $in: membrosIds }
+  }).lean<DocumentoFlexivel[]>();
+
+  // cria um mapa para a associacao dos membros (id e nome)
+  const mapaMembros = new Map(membros.map((m) => [m._id?.toString(),
+  m.nome?.toString() || "Membro"]));
+
+  // retorna as cotas com nome dos membros 
+  return cotas.map((cota) => ({
+    ...cota,
+    // garante que cota_id seja sempre retornado (_id ou cota_id)
+    cota_id: cota._id ?? cota.cota_id,
+    nome_membro: mapaMembros.get(cota.membro_id?.toString()) || "Membro",
+  })) as CotaComMembro[];
 }
 
 // busca os dados da geracao por mes 
@@ -58,9 +109,7 @@ export function buscarGeracoesMensais(parametros: FiltroBase) {
   return GeracaoMensal.find({
     usina_id: idObjeto(parametros.usinaId, "usina_id"),
     mes_referencia: { $regex: `^${parametros.ano}-` },
-  })
-    .sort({ mes_referencia: 1 })
-    .lean<DocumentoFlexivel[]>();
+  }).sort({ mes_referencia: 1 }).lean<DocumentoFlexivel[]>();
 }
 
 // busca os creditos por mes do usuario 
@@ -69,9 +118,7 @@ export function buscarCreditosMensais(parametros: FiltroComMembro) {
     usina_id: idObjeto(parametros.usinaId, "usina_id"),
     membro_id: idObjeto(parametros.membroId, "membro_id"),
     mes_referencia: { $regex: `^${parametros.ano}-` },
-  })
-    .sort({ mes_referencia: 1 })
-    .lean<DocumentoFlexivel[]>();
+  }).sort({ mes_referencia: 1 }).lean<DocumentoFlexivel[]>();
 }
 
 // busca os consumos por mes do usuario
@@ -89,7 +136,7 @@ export function buscarConsumosMensais(parametros: FiltroComMembro) {
     ];
   }
 
-  return ConsumosMensais.find(filtro)
-    .sort({ mes_referencia: 1 })
-    .lean<DocumentoFlexivel[]>();
+  return ConsumosMensais.find(filtro).sort({
+    mes_referencia: 1
+  }).lean<DocumentoFlexivel[]>();
 }

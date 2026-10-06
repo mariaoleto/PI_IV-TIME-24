@@ -10,6 +10,7 @@ import {
   buscarCreditosMensais,
   buscarGeracoesMensais,
   DocumentoFlexivel,
+  buscarTodasCotasComMembros,
 } from "./energia_repo";
 
 const rotulosMeses = [
@@ -177,4 +178,24 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
     economia_estimada_reais: Number((saldoAcumuladoKwh * tarifaKwh).toFixed(2)),
     meses,
   };
+}
+
+// monta e retorna um mapa dos nomes dos membros, com suas cotas, percentual e tarifa 
+export async function listarCotasDistribuicao(parametros: {
+  usinaId?: string;
+  membroId?: string
+}) {
+  // espera retornar o mapa com as cotas e nomes dos membros
+  const cotasComMembros = await buscarTodasCotasComMembros(
+    parametros.usinaId,
+    parametros.membroId,
+  );
+  // formata os dados 
+  return cotasComMembros.map((item) => ({
+    cota_id: (item.cota_id ?? item._id)?.toString(),
+    membro_id: item.membro_id?.toString(),
+    nome: item.nome_membro,
+    percentual: paraNumero(item.percentual),
+    tarifa_kwh: paraNumero(item.tarifa_kwh, 0.69),
+  }));
 }

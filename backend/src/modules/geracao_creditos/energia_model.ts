@@ -64,6 +64,16 @@ const consumosMensaisSchema = new Schema(
   opcoesFlexiveis,
 );
 
+const membroSchema = new Schema(
+  {
+    nome: { type: String, required: true },
+    email: String,
+    tipo_usuario: String,
+    usina_id: Schema.Types.ObjectId,
+  },
+  opcoesFlexiveis,
+);
+
 // exporta os modelos 
 export const GeracaoMensal = mongoose.model(
   "GeracaoMensal",
@@ -72,6 +82,7 @@ export const GeracaoMensal = mongoose.model(
 );
 export const Credito = mongoose.model("Credito", creditosSchema, "creditos");
 export const Cota = mongoose.model("Cota", cotasSchema, "cotas");
+export const Membro = mongoose.model("Membro", membroSchema, "membros");
 export const ConsumosMensais = mongoose.model(
   "ConsumosMensais",
   consumosMensaisSchema,

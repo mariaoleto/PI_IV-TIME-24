@@ -6,9 +6,11 @@
 
 import { Router } from "express";
 import { buscarResumoEnergia } from "./energia_controllers";
+import { buscarCotasDistribuicao } from "./energia_controllers";
 
 const roteador = Router();
 
 roteador.get("/", buscarResumoEnergia);
+roteador.get("/cotas", buscarCotasDistribuicao);
 
 export default roteador;
