@@ -3,11 +3,19 @@
 // significado do arquivo:
 // inicia o servidor e conecta ao mongoDB
 
+import dns from "node:dns";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import { env } from "./config/env";
 import roteadorEnergia from "./modules/geracao_creditos/energia_routes";
+
+// garante resolução de DNS segura para MongoDB Atlas em ambientes locais/Windows
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch {
+  // mantém padrão se o ambiente não permitir alteração de DNS
+}
 
 // configurações do servidor express
 const app = express();

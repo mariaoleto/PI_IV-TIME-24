@@ -49,7 +49,7 @@ export function buscarCotaMaisRecente(parametros: {
   }
 
   return Cota.findOne(filtro)
-    .sort({ data_inicio: -1 })
+    .sort({ percentual: -1, data_inicio: -1 })
     .lean<DocumentoFlexivel>();
 }
 
@@ -76,11 +76,20 @@ export function buscarCreditosMensais(parametros: FiltroComMembro) {
 
 // busca os consumos por mes do usuario
 export function buscarConsumosMensais(parametros: FiltroComMembro) {
-  return ConsumosMensais.find({
-    usina_id: idObjeto(parametros.usinaId, "usina_id"),
+  const filtro: Record<string, unknown> = {
     membro_id: idObjeto(parametros.membroId, "membro_id"),
     mes_referencia: { $regex: `^${parametros.ano}-` },
-  })
+  };
+
+  if (parametros.usinaId) {
+    filtro.$or = [
+      { usina_id: idObjeto(parametros.usinaId, "usina_id") },
+      { usina_id: { $exists: false } },
+      { usina_id: null },
+    ];
+  }
+
+  return ConsumosMensais.find(filtro)
     .sort({ mes_referencia: 1 })
     .lean<DocumentoFlexivel[]>();
 }

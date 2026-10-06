@@ -1,30 +1,29 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:mobile/main.dart';
+import 'package:mobile/src/geracao_consumos/modelos_energia.dart';
+import 'package:mobile/src/geracao_consumos/repositorio_energia.dart';
+
+class RepositorioEnergiaFalso implements RepositorioEnergia {
+  @override
+  Future<ResumoEnergia> buscarResumo({
+    int? ano,
+    String? usinaId,
+    String? membroId,
+  }) async {
+    return ResumoEnergia.exemplo();
+  }
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('mostra resumo de geração de energia', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      AplicativoSolis(repositorioEnergia: RepositorioEnergiaFalso()),
+    );
+    await tester.pumpAndSettle();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Energia'), findsNWidgets(2));
+    expect(find.text('2981 kWh'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('+417 kWh'), 100);
+    expect(find.text('+417 kWh'), findsOneWidget);
   });
 }
