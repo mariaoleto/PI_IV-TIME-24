@@ -1,17 +1,35 @@
-import 'dotenv/config';
+// autora: Maria Júlia Lazarini Oleto
 
-// valida presença das variáveis obrigatórias antes de subir o servidor
-const required = ['MONGODB_URI'];
-required.forEach((key) => {
+import "dotenv/config";
+import dns from "node:dns";
+
+// garante compatibilidade de resolução SRV com MongoDB Atlas no Node.js
+try {
+  dns.setServers(["8.8.8.8", "1.1.1.1"]);
+} catch {
+  // ignora caso o ambiente restrinja alteração de servidores DNS
+}
+
+// valida a presenca das variaveis obrigatorias antes de subir o servidor
+const variaveisObrigatorias = ["MONGODB_URI"];
+
+variaveisObrigatorias.forEach((key) => {
   if (!process.env[key]) {
-    throw new Error(`Variável de ambiente obrigatória ausente: ${key}`);
+    throw new Error(`Variavel de ambiente obrigatoria ausente: ${key}`);
   }
 });
 
-// exporta as variáveis para uso no restante da aplicação
+// exporta as variaveis para uso no restante da aplicacao
+export const ambiente = {
+  modo: process.env.NODE_ENV || "desenvolvimento",
+  porta: process.env.PORT || 3000,
+  mongoDbUri: process.env.MONGODB_URI!,
+  segredoJwt: process.env.JWT_SECRET || "",
+};
+
 export const env = {
-  NODE_ENV: process.env.NODE_ENV || 'development',
-  port: process.env.PORT || 3000,
-  mongodbUri: process.env.MONGODB_URI!,
-  jwtSecret: process.env.JWT_SECRET || '',
+  nodeEnv: ambiente.modo,
+  port: ambiente.porta,
+  mongodbUri: ambiente.mongoDbUri,
+  jwtSecret: ambiente.segredoJwt,
 };
