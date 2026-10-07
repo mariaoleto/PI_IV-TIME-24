@@ -165,10 +165,10 @@ flutter run
 |---|---|
 | Instituição | PUC-Campinas |
 | Curso | Engenharia de Software |
-| Disciplina | |
+| Disciplina | Projeto Integrador IV |
 | Ano | 2026 |
-| Professor Orientador | |
-| Repositório | |
+| Professor Orientador | Renata Arantes |
+| Repositório | PI_IV-TIME-24|
 
 ---
 
