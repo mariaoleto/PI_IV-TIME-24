@@ -162,3 +162,36 @@ int _lerInteiro(Object? valor) {
   if (valor is num) return valor.toInt();
   return int.tryParse(valor?.toString() ?? '') ?? DateTime.now().year;
 }
+
+// modelo que representa a cota de um membro para a distribuicao
+class CotaMembro {
+  final String cotaId;
+  final String membroId;
+  final String nome;
+  final double percentual;
+  final double tarifaKwh;
+
+  const CotaMembro({
+    required this.cotaId,
+    required this.membroId,
+    required this.nome,
+    required this.percentual,
+    required this.tarifaKwh,
+  });
+
+  factory CotaMembro.deJson(Map<String, dynamic> json) {
+    return CotaMembro(
+      cotaId: json['cota_id']?.toString() ?? '',
+      membroId: json['membro_id']?.toString() ?? '',
+      nome: json['nome']?.toString() ?? 'Membro',
+      percentual: _lerDouble(json['percentual']),
+      tarifaKwh: _lerDouble(json['tarifa_kwh']),
+    );
+  }
+
+  // calcula o valor em kWh proporcional à geração total digitada pelo admin
+  double calcularKwh(double geracaoTotalKwh) {
+    final valor = geracaoTotalKwh * (percentual / 100);
+    return double.parse(valor.toStringAsFixed(1));
+  }
+}
