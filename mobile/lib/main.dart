@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'features/auth/presentation/tela_login.dart';
 import 'src/geracao_consumos/repositorio_energia.dart';
 import 'src/geracao_consumos/tela_energia.dart';
 
@@ -29,9 +30,9 @@ class AplicativoSolis extends StatelessWidget {
         fontFamily: 'Roboto',
         useMaterial3: true,
       ),
-      home: TelaEnergia(
-        repositorio: _repositorioEnergia ?? RepositorioApiEnergia(),
-      ),
+      home: _repositorioEnergia != null
+          ? TelaEnergia(repositorio: _repositorioEnergia)
+          : const TelaLogin(),
     );
   }
 }
