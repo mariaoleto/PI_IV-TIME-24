@@ -11,6 +11,8 @@ import {
   buscarGeracoesMensais,
   DocumentoFlexivel,
   buscarTodasCotasComMembros,
+  salvarOuAtualizarGeracao,
+  salvarOuAtualzarCredito,
 } from "./energia_repo";
 
 const rotulosMeses = [
@@ -183,7 +185,7 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
 // monta e retorna um mapa dos nomes dos membros, com suas cotas, percentual e tarifa 
 export async function listarCotasDistribuicao(parametros: {
   usinaId?: string;
-  membroId?: string
+  membroId?: string;
 }) {
   // espera retornar o mapa com as cotas e nomes dos membros
   const cotasComMembros = await buscarTodasCotasComMembros(
@@ -198,4 +200,62 @@ export async function listarCotasDistribuicao(parametros: {
     percentual: paraNumero(item.percentual),
     tarifa_kwh: paraNumero(item.tarifa_kwh, 0.69),
   }));
+}
+
+// registra o lancamento mensal da geracao e distribui os creditos entre os membros
+export async function registrarLancamentoMensal(dados: {
+  mesReferencia: string;
+  geracaoKwh: number;
+  usinaId?: string;
+}) {
+  // se o id da usina nao for passado nos parametros
+  // busca no banco com as cotas
+  const cotas = await buscarTodasCotasComMembros(dados.usinaId);
+  if (cotas.length === 0) {
+    throw new Error("Nenhuma cota de membro encontrada");
+  }
+  const usinaId = dados.usinaId ?? cotas[0].usina_id?.toString();
+  if (!usinaId) {
+    throw new Error("Usina não identificada");
+  }
+  // salva ou atualiza no banco
+  await salvarOuAtualizarGeracao({
+    usinaId,
+    mesReferencia: dados.mesReferencia,
+    geracaoKwh: dados.geracaoKwh,
+  });
+  // faz a distribuicao dos creditos entre os membros 
+  const distribuicao = await Promise.all(
+    // mapeia os membros com as suas cotas
+    // usando cota (cota com membro) como parametro
+    cotas.map(async (cota) => {
+      const percentual = paraNumero(cota.percentual);
+      // calcula os creditos
+      const creditosCalculados = Number((dados.geracaoKwh * (percentual / 100)).toFixed(1));
+      // salva ou atualiza no banco
+      await salvarOuAtualzarCredito({
+        usinaId,
+        membroId: cota.membro_id!.toString(),
+        mesReferencia: dados.mesReferencia,
+        geracaoTotalKwh: dados.geracaoKwh,
+        percentualCota: percentual,
+        creditosLiquidosKwh: creditosCalculados,
+      });
+      // retorna os dados do map
+      return {
+        membro_id: cota.membro_id!.toString(),
+        nome: cota.nome_membro,
+        percentual,
+        creditos_kwh: creditosCalculados,
+      };
+    }),
+  );
+  // retorna os dados do lançamento mensal 
+  return {
+    mensagem: "Dados lançados e créditos distribuídos com sucesso!",
+    mes_referencia: dados.mesReferencia,
+    geracao_total_kwh: dados.geracaoKwh,
+    membros_atualizados: distribuicao.length,
+    distribuicao,
+  };
 }

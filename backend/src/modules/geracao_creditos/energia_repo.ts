@@ -140,3 +140,54 @@ export function buscarConsumosMensais(parametros: FiltroComMembro) {
     mes_referencia: 1
   }).lean<DocumentoFlexivel[]>();
 }
+
+// salva ou atualiza os dados de geracao mensal
+export function salvarOuAtualizarGeracao(parametros: {
+  usinaId: string;
+  mesReferencia: string;
+  geracaoKwh: number;
+}) {
+  // busca por usina e mes de referencia
+  // insere o novo documento no banco caso nao exista 
+  // se ja existe, ele da um update do valor e da data
+  return GeracaoMensal.findOneAndUpdate(
+    {
+      usina_id: idObjeto(parametros.usinaId, "usina_id"),
+      mes_referencia: parametros.mesReferencia,
+    },
+    {
+      $set: {
+        geracao_kwh: parametros.geracaoKwh,
+        data_lancamento: new Date(),
+      },
+    },
+    { upsert: true, new: true }, // cria se nao existir e retorna o novo 
+  ).lean<DocumentoFlexivel>();
+}
+
+export function salvarOuAtualzarCredito(parametros: {
+  usinaId: string;
+  membroId: string;
+  mesReferencia: string;
+  geracaoTotalKwh: number;
+  percentualCota: number;
+  creditosLiquidosKwh: number;
+}) {
+  return Credito.findOneAndUpdate(
+    {
+      usina_id: idObjeto(parametros.usinaId, "usina_id"),
+      membro_id: idObjeto(parametros.membroId, "membro_id"),
+      mes_referencia: parametros.mesReferencia,
+    },
+    {
+      $set: {
+        geracao_total_kwh: parametros.geracaoTotalKwh,
+        percentual_cota: parametros.percentualCota,
+        creditos_brutos_kwh: parametros.creditosLiquidosKwh,
+        perdas_transmissao_kwh: 0,
+        creditos_liquidos_kwh: parametros.creditosLiquidosKwh,
+      },
+    },
+    { upsert: true, new: true },
+  ).lean<DocumentoFlexivel>();
+}
