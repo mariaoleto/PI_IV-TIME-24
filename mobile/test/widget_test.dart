@@ -1,3 +1,4 @@
+// autora: Maria Júlia Lazarini Oleto
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/main.dart';
 import 'package:mobile/src/geracao_consumos/modelos_energia.dart';
@@ -12,10 +13,26 @@ class RepositorioEnergiaFalso implements RepositorioEnergia {
   }) async {
     return ResumoEnergia.exemplo();
   }
+
+  @override
+  Future<List<CotaMembro>> buscarCotasDistribuicao({String? usinaId}) async {
+    return const [];
+  }
+
+  @override
+  Future<bool> salvarLancamentoMensal({
+    required String mesReferencia,
+    required double geracaoKwh,
+    String? usinaId,
+  }) async {
+    return true;
+  }
 }
 
 void main() {
-  testWidgets('mostra resumo de geração de energia', (WidgetTester tester) async {
+  testWidgets('mostra resumo de geração de energia', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       AplicativoSolis(repositorioEnergia: RepositorioEnergiaFalso()),
     );
