@@ -47,6 +47,7 @@ A proposta simula uma plataforma de gestão de energia solar compartilhada entre
 |---|---|
 | Node.js (LTS) | Runtime JavaScript para o servidor |
 | TypeScript / JavaScript | Linguagens de desenvolvimento |
+| Java/SpringBoot | Transicao do node para java |
 
 ### Frontend (Mobile)
 | Tecnologia | Descrição |
@@ -110,22 +111,30 @@ npm run dev
 
 > O servidor estará disponível em `http://localhost:3000` (ou a porta configurada no `.env`).
 
+### 2.1 Configurar o Servidor em Java
+
+Na raiz do projeto, configure `MONGODB_URI` com a URI do MongoDB. O arquivo `.env.example` mostra o nome da variável, mas o Spring Boot não carrega arquivos `.env` automaticamente.
+
+No PowerShell, por exemplo:
+
+```powershell
+$env:MONGODB_URI = "mongodb://localhost:27017/solis"
+.\mvnw.cmd spring-boot:run
+```
+
+Sem a variável configurada, o servidor usa `mongodb://localhost:27017/solis`.
+
 ---
 
 ### 3. Configurar o Banco de Dados MongoDB
 
-Certifique-se de que o MongoDB esteja em execução localmente, ou configure a string de conexão de um cluster remoto (ex: MongoDB Atlas) no arquivo `.env` do backend.
+Certifique-se de que o MongoDB esteja em execução localmente, ou informe a URI de um cluster remoto (por exemplo, MongoDB Atlas) na variável de ambiente `MONGODB_URI`.
 
 ---
 
 ### 4. Configurar e executar o Servidor Java
 
-```bash
-# Acesse a pasta do servidor Java
-cd servidor-java
-```
-
-> Framework e ferramenta de build (Maven, Gradle etc.) ainda não definidos pela equipe. Assim que forem escolhidos, complete esta seção com os comandos de compilação e execução correspondentes.
+As instruções para executar o servidor Java estão na seção [2.1](#21-configurar-o-servidor-em-java).
 
 ---
 
@@ -165,10 +174,10 @@ flutter run
 |---|---|
 | Instituição | PUC-Campinas |
 | Curso | Engenharia de Software |
-| Disciplina | |
+| Disciplina | Projeto Integrador IV |
 | Ano | 2026 |
-| Professor Orientador | |
-| Repositório | |
+| Professor Orientador | Renata Arantes |
+| Repositório | PI_IV-TIME-24|
 
 ---
 
