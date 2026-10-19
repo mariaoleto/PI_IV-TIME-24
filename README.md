@@ -47,7 +47,7 @@ A proposta simula uma plataforma de gestão de energia solar compartilhada entre
 |---|---|
 | Node.js (LTS) | Runtime JavaScript para o servidor |
 | TypeScript / JavaScript | Linguagens de desenvolvimento |
-| Java | Transicao do node para java |
+| Java/Spring Boot | Transição do node para java |
 
 ### Frontend (Mobile)
 | Tecnologia | Descrição |
