@@ -47,6 +47,7 @@ A proposta simula uma plataforma de gestão de energia solar compartilhada entre
 |---|---|
 | Node.js (LTS) | Runtime JavaScript para o servidor |
 | TypeScript / JavaScript | Linguagens de desenvolvimento |
+| Java/SpringBoot | Transicao do node para java |
 
 ### Frontend (Mobile)
 | Tecnologia | Descrição |
@@ -109,6 +110,13 @@ npm run dev
 ```
 
 > O servidor estará disponível em `http://localhost:3000` (ou a porta configurada no `.env`).
+
+### 2.1 Configurar o Servidor em Java
+
+# Executar servidor em java
+´´´
+./mvnw spring-boot:run
+´´´
 
 ---
 
