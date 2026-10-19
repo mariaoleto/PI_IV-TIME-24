@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../src/geracao_consumos/repositorio_energia.dart';
-import '../../../src/geracao_consumos/tela_lancamento_geracao.dart';
+import '../../geracao_creditos/domain/repositorio_energia.dart';
+import '../../geracao_creditos/presentation/tela_lancamento_geracao.dart';
 import '../data/servico_auth.dart';
 import '../domain/validadores.dart';
 import 'widgets_auth.dart';
@@ -38,14 +38,17 @@ class _EstadoTelaLoginAdmin extends State<TelaLoginAdmin> {
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => TelaLancamentoGeracao(repositorio: RepositorioApiEnergia()),
+          builder: (_) =>
+              TelaLancamentoGeracao(repositorio: RepositorioApiEnergia()),
         ),
         (rota) => false,
       );
     } catch (erro) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(erro.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(
+          content: Text(erro.toString().replaceFirst('Exception: ', '')),
+        ),
       );
       setState(() => _carregando = false);
     }
@@ -59,21 +62,21 @@ class _EstadoTelaLoginAdmin extends State<TelaLoginAdmin> {
         child: Column(
           children: [
             LogoSolis(
-            subtitulo: 'Área administrativa',
-            selo: Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                color: corDestaque,
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(color: corFundoEscuro, width: 2),
+              subtitulo: 'Área administrativa',
+              selo: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: corDestaque,
+                  borderRadius: BorderRadius.circular(7),
+                  border: Border.all(color: corFundoEscuro, width: 2),
+                ),
+                child: const Icon(
+                  Icons.shield_outlined,
+                  size: 12,
+                  color: corFundoEscuro,
+                ),
               ),
-              child: const Icon(
-                Icons.shield_outlined,
-                size: 12,
-                color: corFundoEscuro,
-              ),
-            ),
             ),
             const SizedBox(height: 14),
             _etiquetaAdmin(),
@@ -83,44 +86,44 @@ class _EstadoTelaLoginAdmin extends State<TelaLoginAdmin> {
       conteudo: Form(
         key: _formulario,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Bem-vindo, Administrador',
-            style: TextStyle(
-              color: corPrimaria,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Bem-vindo, Administrador',
+              style: TextStyle(
+                color: corPrimaria,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Gerencie sua usina solar',
-            style: TextStyle(color: Color(0xFF5B6472), fontSize: 13),
-          ),
-          const SizedBox(height: 24),
-          CampoAuth(
-            rotulo: 'E-mail administrativo',
-            dica: 'admin@solis.com.br',
-            controlador: _email,
-            tipoTeclado: TextInputType.emailAddress,
-            validador: validarEmail,
-          ),
-          const SizedBox(height: 16),
-          CampoAuth(
-            rotulo: 'Senha',
-            dica: '••••••••',
-            controlador: _senha,
-            senha: true,
-            validador: validarSenha,
-          ),
-          const SizedBox(height: 22),
-          BotaoPrincipalAuth(
-            texto: 'Entrar',
-            aoPressionar: _entrar,
-            carregando: _carregando,
-          ),
-        ],
+            const SizedBox(height: 4),
+            const Text(
+              'Gerencie sua usina solar',
+              style: TextStyle(color: Color(0xFF5B6472), fontSize: 13),
+            ),
+            const SizedBox(height: 24),
+            CampoAuth(
+              rotulo: 'E-mail administrativo',
+              dica: 'admin@solis.com.br',
+              controlador: _email,
+              tipoTeclado: TextInputType.emailAddress,
+              validador: validarEmail,
+            ),
+            const SizedBox(height: 16),
+            CampoAuth(
+              rotulo: 'Senha',
+              dica: '••••••••',
+              controlador: _senha,
+              senha: true,
+              validador: validarSenha,
+            ),
+            const SizedBox(height: 22),
+            BotaoPrincipalAuth(
+              texto: 'Entrar',
+              aoPressionar: _entrar,
+              carregando: _carregando,
+            ),
+          ],
         ),
       ),
       rodape: Column(

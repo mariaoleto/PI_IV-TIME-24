@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../src/geracao_consumos/repositorio_energia.dart';
-import '../../../src/geracao_consumos/tela_energia.dart';
+import '../../geracao_creditos/domain/repositorio_energia.dart';
+import '../../geracao_creditos/presentation/tela_energia.dart';
 import '../data/servico_auth.dart';
 import '../domain/validadores.dart';
 import 'tela_criar_conta.dart';
@@ -33,10 +33,7 @@ class _EstadoTelaLogin extends State<TelaLogin> {
     if (!_formulario.currentState!.validate()) return;
     setState(() => _carregando = true);
     try {
-      await _auth.entrarMembro(
-        email: _email.text.trim(),
-        senha: _senha.text,
-      );
+      await _auth.entrarMembro(email: _email.text.trim(), senha: _senha.text);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -46,7 +43,9 @@ class _EstadoTelaLogin extends State<TelaLogin> {
     } catch (erro) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(erro.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(
+          content: Text(erro.toString().replaceFirst('Exception: ', '')),
+        ),
       );
       setState(() => _carregando = false);
     }
@@ -63,72 +62,74 @@ class _EstadoTelaLogin extends State<TelaLogin> {
     return EstruturaAuth(
       cabecalho: const Padding(
         padding: EdgeInsets.only(top: 16, bottom: 28),
-        child: Center(child: LogoSolis(subtitulo: 'Energia solar compartilhada')),
+        child: Center(
+          child: LogoSolis(subtitulo: 'Energia solar compartilhada'),
+        ),
       ),
       conteudo: Form(
         key: _formulario,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Bem-vindo de volta',
-            style: TextStyle(
-              color: corPrimaria,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Bem-vindo de volta',
+              style: TextStyle(
+                color: corPrimaria,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Acesse seus créditos e geração solar',
-            style: TextStyle(color: Color(0xFF5B6472), fontSize: 13),
-          ),
-          const SizedBox(height: 24),
-          CampoAuth(
-            rotulo: 'E-mail',
-            dica: 'seu@email.com',
-            controlador: _email,
-            tipoTeclado: TextInputType.emailAddress,
-            validador: validarEmail,
-          ),
-          const SizedBox(height: 16),
-          CampoAuth(
-            rotulo: 'Senha',
-            dica: '••••••••',
-            controlador: _senha,
-            senha: true,
-            validador: validarSenha,
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: _esqueciSenha,
-              child: const Text(
-                'Esqueci a senha',
-                style: TextStyle(
-                  color: corPrimaria,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
+            const SizedBox(height: 4),
+            const Text(
+              'Acesse seus créditos e geração solar',
+              style: TextStyle(color: Color(0xFF5B6472), fontSize: 13),
+            ),
+            const SizedBox(height: 24),
+            CampoAuth(
+              rotulo: 'E-mail',
+              dica: 'seu@email.com',
+              controlador: _email,
+              tipoTeclado: TextInputType.emailAddress,
+              validador: validarEmail,
+            ),
+            const SizedBox(height: 16),
+            CampoAuth(
+              rotulo: 'Senha',
+              dica: '••••••••',
+              controlador: _senha,
+              senha: true,
+              validador: validarSenha,
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: _esqueciSenha,
+                child: const Text(
+                  'Esqueci a senha',
+                  style: TextStyle(
+                    color: corPrimaria,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 22),
-          BotaoPrincipalAuth(
-            texto: 'Entrar',
-            aoPressionar: _entrar,
-            carregando: _carregando,
-          ),
-          const SizedBox(height: 24),
-          LinkAuth(
-            pergunta: 'Não tem conta?',
-            acao: 'Criar conta',
-            aoPressionar: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const TelaCriarConta()),
+            const SizedBox(height: 22),
+            BotaoPrincipalAuth(
+              texto: 'Entrar',
+              aoPressionar: _entrar,
+              carregando: _carregando,
             ),
-          ),
-        ],
+            const SizedBox(height: 24),
+            LinkAuth(
+              pergunta: 'Não tem conta?',
+              acao: 'Criar conta',
+              aoPressionar: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const TelaCriarConta())),
+            ),
+          ],
         ),
       ),
       rodape: Column(
@@ -140,9 +141,9 @@ class _EstadoTelaLogin extends State<TelaLogin> {
           ),
           const SizedBox(height: 14),
           GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const TelaLoginAdmin()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const TelaLoginAdmin())),
             child: const Text(
               'Entrar como administrador',
               style: TextStyle(

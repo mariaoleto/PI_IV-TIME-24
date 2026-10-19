@@ -1,8 +1,7 @@
 // autora: Maria Júlia Lazarini Oleto
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile/main.dart';
-import 'package:mobile/src/geracao_consumos/modelos_energia.dart';
-import 'package:mobile/src/geracao_consumos/repositorio_energia.dart';
+import 'package:mobile/features/geracao_creditos/domain/repositorio_energia.dart';
 
 class RepositorioEnergiaFalso implements RepositorioEnergia {
   @override

@@ -1,3 +1,6 @@
+// autora: Maria Júlia Lazarini Oleto
+// significado do arquivo: model do documento de cotas, que sai e entra na API
+
 package PIV.solis.Models;
 
 import java.util.Date;
@@ -9,12 +12,10 @@ import org.springframework.data.mongodb.core.index.Indexed;
 
 @Document("cotas")
 public record Cota(
-        @Id ObjectId id,
-        @Indexed
-        @Field("membro_id") ObjectId membroId,
-        @Indexed
-        @Field("usina_id") ObjectId usinaId,
-        @Field("percentual") Object percentual,
-        @Field("tarifa_kwh") Object tarifaKwh,
-        @Field("data_inicio") Date dataInicio) {
+                @Id ObjectId id,
+                @Indexed @Field("membro_id") ObjectId membroId,
+                @Indexed @Field("usina_id") ObjectId usinaId,
+                @Field("percentual") Object percentual,
+                @Field("tarifa_kwh") Object tarifaKwh,
+                @Field("data_inicio") Date dataInicio) {
 }

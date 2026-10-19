@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'features/auth/presentation/tela_login.dart';
-import 'src/geracao_consumos/repositorio_energia.dart';
-import 'src/geracao_consumos/tela_energia.dart';
+import 'features/geracao_creditos/domain/repositorio_energia.dart';
+import 'features/geracao_creditos/presentation/tela_energia.dart';
 
 void main() {
   runApp(const AplicativoSolis());

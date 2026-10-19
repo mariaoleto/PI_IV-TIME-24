@@ -94,35 +94,41 @@ cd [nome-repositorio]
 
 ### 2. Configurar e executar o Backend
 
+O projeto possui duas implementações do backend dentro da pasta `backend/`:
+
+#### 2.1 Backend em Node.js (TypeScript)
+
 ```bash
-# Acesse a pasta do backend
-cd backend
+# Acesse a pasta do backend Node
+cd backend/node
 
 # Instale as dependências
 npm install
 
 # Configure as variáveis de ambiente
 cp .env.example .env
-# Edite o arquivo .env com a string de conexão do MongoDB e demais configurações
+# Edite o arquivo .env com a string de conexão do MongoDB Atlas
 
 # Execute em modo de desenvolvimento
 npm run dev
 ```
 
-> O servidor estará disponível em `http://localhost:3000` (ou a porta configurada no `.env`).
+> O servidor estará disponível em `http://localhost:3000`.
 
-### 2.1 Configurar o Servidor em Java
-
-Na raiz do projeto, configure `MONGODB_URI` com a URI do MongoDB. O arquivo `.env.example` mostra o nome da variável, mas o Spring Boot não carrega arquivos `.env` automaticamente.
-
-No PowerShell, por exemplo:
+#### 2.2 Backend em Java (Spring Boot)
 
 ```powershell
-$env:MONGODB_URI = "mongodb://localhost:27017/solis"
+# Acesse a pasta do backend Java
+cd backend/java
+
+# Configure a variável de ambiente do MongoDB (opcional, padrão: mongodb://localhost:27017/solis)
+$env:MONGODB_URI = "sua_string_de_conexao_mongodb"
+
+# Execute a aplicação Spring Boot
 .\mvnw.cmd spring-boot:run
 ```
 
-Sem a variável configurada, o servidor usa `mongodb://localhost:27017/solis`.
+> O servidor Java também sobe na porta `3000` (`http://localhost:3000`), garantindo paridade total com o app mobile.
 
 ---
 
@@ -132,16 +138,10 @@ Certifique-se de que o MongoDB esteja em execução localmente, ou informe a URI
 
 ---
 
-### 4. Configurar e executar o Servidor Java
-
-As instruções para executar o servidor Java estão na seção [2.1](#21-configurar-o-servidor-em-java).
-
----
-
-### 5. Configurar e executar o Aplicativo Mobile
+### 4. Configurar e executar o Aplicativo Mobile
 
 ```bash
-# Acesse a pasta do frontend
+# Acesse a pasta do mobile
 cd mobile
 
 # Instale as dependências do Flutter
@@ -159,10 +159,33 @@ flutter run
 ## 📁 Estrutura do Repositório
 
 ```text
-
+projeto-solis/
+├── backend/
+│   ├── java/              # Servidor Spring Boot (Java 21, Maven)
+│   │   ├── src/
+│   │   │   ├── main/java/PIV/solis/
+│   │   │   │   ├── Controllers/
+│   │   │   │   ├── Models/
+│   │   │   │   ├── Repositories/
+│   │   │   │   └── Services/
+│   │   │   └── main/resources/application.properties
+│   │   ├── pom.xml
+│   │   └── mvnw.cmd
+│   └── node/              # Servidor Node.js (TypeScript, Express)
+│       ├── src/
+│       │   ├── modules/geracao_creditos/
+│       │   └── server.ts
+│       ├── package.json
+│       └── tsconfig.json
+├── mobile/                # Aplicativo mobile (Flutter / Dart)
+│   ├── lib/
+│   │   ├── features/auth/
+│   │   └── features/geracao_creditos/
+│   └── pubspec.yaml
+├── banco/                 # Scripts e esquemas do MongoDB
+├── docs/                  # Documentação do projeto
+└── README.md
 ```
-
-### Organização da Arquitetura
 
 
 
