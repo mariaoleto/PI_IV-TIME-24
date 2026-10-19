@@ -47,6 +47,7 @@ A proposta simula uma plataforma de gestão de energia solar compartilhada entre
 |---|---|
 | Node.js (LTS) | Runtime JavaScript para o servidor |
 | TypeScript / JavaScript | Linguagens de desenvolvimento |
+| Java/SpringBoot | Transicao do node para java |
 
 ### Frontend (Mobile)
 | Tecnologia | Descrição |
@@ -93,46 +94,54 @@ cd [nome-repositorio]
 
 ### 2. Configurar e executar o Backend
 
+O projeto possui duas implementações do backend dentro da pasta `backend/`:
+
+#### 2.1 Backend em Node.js (TypeScript)
+
 ```bash
-# Acesse a pasta do backend
-cd backend
+# Acesse a pasta do backend Node
+cd backend/node
 
 # Instale as dependências
 npm install
 
 # Configure as variáveis de ambiente
 cp .env.example .env
-# Edite o arquivo .env com a string de conexão do MongoDB e demais configurações
+# Edite o arquivo .env com a string de conexão do MongoDB Atlas
 
 # Execute em modo de desenvolvimento
 npm run dev
 ```
 
-> O servidor estará disponível em `http://localhost:3000` (ou a porta configurada no `.env`).
+> O servidor estará disponível em `http://localhost:3000`.
+
+#### 2.2 Backend em Java (Spring Boot)
+
+```powershell
+# Acesse a pasta do backend Java
+cd backend/java
+
+# Configure a variável de ambiente do MongoDB (opcional, padrão: mongodb://localhost:27017/solis)
+$env:MONGODB_URI = "sua_string_de_conexao_mongodb"
+
+# Execute a aplicação Spring Boot
+.\mvnw.cmd spring-boot:run
+```
+
+> O servidor Java também sobe na porta `3000` (`http://localhost:3000`), garantindo paridade total com o app mobile.
 
 ---
 
 ### 3. Configurar o Banco de Dados MongoDB
 
-Certifique-se de que o MongoDB esteja em execução localmente, ou configure a string de conexão de um cluster remoto (ex: MongoDB Atlas) no arquivo `.env` do backend.
+Certifique-se de que o MongoDB esteja em execução localmente, ou informe a URI de um cluster remoto (por exemplo, MongoDB Atlas) na variável de ambiente `MONGODB_URI`.
 
 ---
 
-### 4. Configurar e executar o Servidor Java
+### 4. Configurar e executar o Aplicativo Mobile
 
 ```bash
-# Acesse a pasta do servidor Java
-cd servidor-java
-```
-
-> Framework e ferramenta de build (Maven, Gradle etc.) ainda não definidos pela equipe. Assim que forem escolhidos, complete esta seção com os comandos de compilação e execução correspondentes.
-
----
-
-### 5. Configurar e executar o Aplicativo Mobile
-
-```bash
-# Acesse a pasta do frontend
+# Acesse a pasta do mobile
 cd mobile
 
 # Instale as dependências do Flutter
@@ -150,10 +159,33 @@ flutter run
 ## 📁 Estrutura do Repositório
 
 ```text
-
+projeto-solis/
+├── backend/
+│   ├── java/              # Servidor Spring Boot (Java 21, Maven)
+│   │   ├── src/
+│   │   │   ├── main/java/PIV/solis/
+│   │   │   │   ├── Controllers/
+│   │   │   │   ├── Models/
+│   │   │   │   ├── Repositories/
+│   │   │   │   └── Services/
+│   │   │   └── main/resources/application.properties
+│   │   ├── pom.xml
+│   │   └── mvnw.cmd
+│   └── node/              # Servidor Node.js (TypeScript, Express)
+│       ├── src/
+│       │   ├── modules/geracao_creditos/
+│       │   └── server.ts
+│       ├── package.json
+│       └── tsconfig.json
+├── mobile/                # Aplicativo mobile (Flutter / Dart)
+│   ├── lib/
+│   │   ├── features/auth/
+│   │   └── src/geracao_consumos/
+│   └── pubspec.yaml
+├── banco/                 # Scripts e esquemas do MongoDB
+├── docs/                  # Documentação do projeto
+└── README.md
 ```
-
-### Organização da Arquitetura
 
 
 
