@@ -53,6 +53,7 @@ export type ParametrosDashboard = {
   ano?: string;
   usinaId?: string;
   membroId?: string;
+  email?: string;
 };
 
 export type ItemGeracaoMensal = {
@@ -120,16 +121,16 @@ export async function obterDashboardMembro(
   const membroId = parametros.membroId;
   const usinaId = parametros.usinaId;
 
-  // busca membro 
-  const membroDoc = await buscarMembroPorIdOuPrimeiro(membroId);
+  // busca membro (por id ou email fornecido, ou o mais recente cadastrado)
+  const membroDoc = await buscarMembroPorIdOuPrimeiro(membroId, parametros.email);
   const idMembroEncontrado = membroDoc?._id?.toString() || membroId;
-  const nomeMembro = (membroDoc?.nome as string);
-  const inicialMembro = nomeMembro?.[0].toUpperCase();
+  const nomeMembro = (membroDoc?.nome as string)?.trim() || "João Oliveira";
+  const inicialMembro = nomeMembro.charAt(0).toUpperCase() || "J";
 
   // busca cota associada
   const idUsinaDoMembro = membroDoc?.usina_id?.toString() || usinaId;
   const cotaDoc = await buscarCotaDoMembro(idMembroEncontrado, idUsinaDoMembro);
-  const cotaPercentual = paraNumero(cotaDoc?.percentual);
+  const cotaPercentual = paraNumero(cotaDoc?.percentual, 25);
   const tarifaKwh = paraNumero(cotaDoc?.tarifa_kwh, 0.69);
   const idUsina = idUsinaDoMembro || cotaDoc?.usina_id?.toString();
 

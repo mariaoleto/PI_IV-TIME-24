@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../geracao_creditos/domain/repositorio_energia.dart';
-import '../../geracao_creditos/presentation/tela_energia.dart';
+import '../../painel_membro/domain/repositorio_painel_membro.dart';
+import '../../painel_membro/presentation/tela_painel_membro.dart';
 import '../data/servico_auth.dart';
 import '../domain/validadores.dart';
 import 'tela_criar_conta.dart';
@@ -37,7 +37,10 @@ class _EstadoTelaLogin extends State<TelaLogin> {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => TelaEnergia(repositorio: RepositorioApiEnergia()),
+          builder: (_) => TelaPainelMembro(
+            repositorio: RepositorioApiPainelMembro(),
+            emailMembro: _email.text.trim(),
+          ),
         ),
       );
     } catch (erro) {

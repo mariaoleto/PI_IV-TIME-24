@@ -28,20 +28,31 @@ function paraIdObjeto(valor?: string) {
 // coloca os ObjectId no filtro, se estiverem validos
 // usa o filtro na busca e retorna o dado encontrado  
 
-// busca as informacoes do membro no banco (ou o primeiro membro disponivel)
-export async function buscarMembroPorIdOuPrimeiro(membroId?: string) {
+// busca as informacoes do membro no banco (por id, por email ou o membro mais recente cadastrado)
+export async function buscarMembroPorIdOuPrimeiro(membroId?: string, email?: string) {
+  // se tiver email informado, busca diretamente pelo email
+  if (email && email.trim().length > 0) {
+    const membroPorEmail = await Membro.findOne({
+      email: new RegExp(`^${email.trim()}$`, "i"),
+    }).lean<DocumentoFlexivel>();
+    if (membroPorEmail) return membroPorEmail;
+  }
+
+  // se tiver id informado, busca pelo ObjectId
   const id = paraIdObjeto(membroId);
   if (id) {
     const membro = await Membro.findById(id).lean<DocumentoFlexivel>();
     if (membro) return membro;
   }
 
-  // se nao passou id ou nao encontrou, busca o primeiro membro cadastrado
-  const primeiroMembro = await Membro.findOne({
+  // se nao passou id ou email, busca o membro mais recente cadastrado
+  const membroMaisRecente = await Membro.findOne({
     $or: [{ tipo_usuario: "membro" }, { tipo_usuario: { $exists: false } }],
-  }).lean<DocumentoFlexivel>();
+  })
+    .sort({ _id: -1 })
+    .lean<DocumentoFlexivel>();
 
-  if (primeiroMembro) return primeiroMembro;
+  if (membroMaisRecente) return membroMaisRecente;
 
   // retorna qualquer membro cadastrado
   return Membro.findOne().lean<DocumentoFlexivel>();
