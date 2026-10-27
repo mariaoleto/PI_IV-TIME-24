@@ -6,6 +6,8 @@ import 'dart:math' as matematica;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../painel_membro/domain/repositorio_painel_membro.dart';
+import '../../painel_membro/presentation/tela_painel_membro.dart';
 import '../domain/repositorio_energia.dart';
 
 class TelaEnergia extends StatefulWidget {
@@ -101,10 +103,24 @@ class _Cabecalho extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final podeVoltar = Navigator.of(context).canPop();
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 14, 22, 18),
+      padding: EdgeInsets.fromLTRB(podeVoltar ? 12 : 22, 14, 22, 18),
       child: Row(
         children: [
+          if (podeVoltar) ...[
+            IconButton(
+              icon: const Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.white,
+                size: 20,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+              tooltip: 'Voltar ao início',
+            ),
+            const SizedBox(width: 4),
+          ],
           const Expanded(
             child: Text(
               'Energia',
@@ -657,6 +673,21 @@ class _NavegacaoInferior extends StatelessWidget {
     return NavigationBar(
       height: 64,
       selectedIndex: 1,
+      onDestinationSelected: (indice) {
+        if (indice == 0) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => TelaPainelMembro(
+                  repositorio: RepositorioApiPainelMembro(),
+                ),
+              ),
+            );
+          }
+        }
+      },
       backgroundColor: Colors.white,
       indicatorColor: Colors.transparent,
       elevation: 6,

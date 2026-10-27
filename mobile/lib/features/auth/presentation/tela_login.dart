@@ -35,6 +35,7 @@ class _EstadoTelaLogin extends State<TelaLogin> {
     try {
       await _auth.entrarMembro(email: _email.text.trim(), senha: _senha.text);
       if (!mounted) return;
+      // passa o email digitado para o painel do membro
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => TelaPainelMembro(
