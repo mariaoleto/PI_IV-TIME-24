@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../geracao_creditos/domain/repositorio_energia.dart';
-import '../../geracao_creditos/presentation/tela_lancamento_geracao.dart';
+import '../../painel_admin/domain/repositorio_painel_admin.dart';
+import '../../painel_admin/presentation/tela_painel_admin.dart';
 import '../data/servico_auth.dart';
 import '../domain/validadores.dart';
 import 'widgets_auth.dart';
@@ -38,8 +39,10 @@ class _EstadoTelaLoginAdmin extends State<TelaLoginAdmin> {
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) =>
-              TelaLancamentoGeracao(repositorio: RepositorioApiEnergia()),
+          builder: (_) => TelaPainelAdmin(
+            repositorio: RepositorioApiPainelAdmin(),
+            repositorioEnergia: RepositorioApiEnergia(),
+          ),
         ),
         (rota) => false,
       );

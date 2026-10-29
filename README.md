@@ -47,7 +47,7 @@ A proposta simula uma plataforma de gestão de energia solar compartilhada entre
 |---|---|
 | Node.js (LTS) | Runtime JavaScript para o servidor |
 | TypeScript / JavaScript | Linguagens de desenvolvimento |
-| Java/SpringBoot | Transicao do node para java |
+| Java / Spring Boot | Transição do node para java |
 
 ### Frontend (Mobile)
 | Tecnologia | Descrição |
@@ -180,7 +180,7 @@ projeto-solis/
 ├── mobile/                # Aplicativo mobile (Flutter / Dart)
 │   ├── lib/
 │   │   ├── features/auth/
-│   │   └── features/geracao_creditos/
+│   │   └── src/geracao_consumos/
 │   └── pubspec.yaml
 ├── banco/                 # Scripts e esquemas do MongoDB
 ├── docs/                  # Documentação do projeto

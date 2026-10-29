@@ -9,6 +9,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import { env } from "./config/env";
 import roteadorEnergia from "./modules/geracao_creditos/energia_routes";
+import roteadorPainelAdmin from "./modules/painel_admin/painel_routes";
 
 // garante resolução de DNS segura para MongoDB Atlas em ambientes locais/Windows
 try {
@@ -29,6 +30,7 @@ app.get("/", (_req, res) => {
 
 // usa a rota para receber e enviar dados
 app.use("/energia", roteadorEnergia);
+app.use("/admin", roteadorPainelAdmin);
 
 // trata erros da rota
 app.use(
