@@ -1,4 +1,5 @@
 // autora: Maria Julia Lazarini Oleto
+// RA: 25006031
 
 // significado do arquivo:
 // criacao das regras de negocio e calculos de geracao, consumo e créditos

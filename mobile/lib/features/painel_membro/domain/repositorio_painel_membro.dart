@@ -1,4 +1,6 @@
 // autora: Maria Júlia Lazarini Oleto
+// RA: 25006031
+
 // significado do arquivo:
 // interface e implementação do repositório de dados do painel do membro
 

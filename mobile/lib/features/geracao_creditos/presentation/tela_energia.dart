@@ -1,4 +1,6 @@
 // autora: Maria Júlia Lazarini Oleto
+// RA: 25006031
+
 // significado do arquivo: tela dos gráficos de geração e consumo (membro)
 
 import 'dart:math' as matematica;
@@ -680,9 +682,8 @@ class _NavegacaoInferior extends StatelessWidget {
           } else {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (_) => TelaPainelMembro(
-                  repositorio: RepositorioApiPainelMembro(),
-                ),
+                builder: (_) =>
+                    TelaPainelMembro(repositorio: RepositorioApiPainelMembro()),
               ),
             );
           }

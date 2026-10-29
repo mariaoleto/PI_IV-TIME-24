@@ -129,6 +129,20 @@ class _EstadoTelaPainelAdmin extends State<TelaPainelAdmin> {
             Expanded(child: _corpo()),
           ],
         ),
+        bottomNavigationBar: _BarraNavegacaoAdmin(
+          indiceSelecionado: 0,
+          aoMudarAba: (indice) {
+            if (indice == 1) {
+              _avisarEmBreve('Cadastro da Usina');
+            } else if (indice == 2) {
+              _avisarEmBreve('Cadastro de Cotas');
+            } else if (indice == 3) {
+              _abrirRegistro();
+            } else if (indice == 4) {
+              _avisarEmBreve('Perfil');
+            }
+          },
+        ),
       ),
     );
   }
@@ -945,3 +959,63 @@ class _EstadoErro extends StatelessWidget {
     );
   }
 }
+
+class _BarraNavegacaoAdmin extends StatelessWidget {
+  const _BarraNavegacaoAdmin({
+    required this.indiceSelecionado,
+    required this.aoMudarAba,
+  });
+
+  final int indiceSelecionado;
+  final ValueChanged<int> aoMudarAba;
+
+  @override
+  Widget build(BuildContext context) {
+    const itens = [
+      (Icons.home_outlined, 'Início'),
+      (Icons.desktop_windows_outlined, 'Usina'),
+      (Icons.people_outline, 'Membros'),
+      (Icons.bar_chart_outlined, 'Relatórios'),
+      (Icons.person_outline, 'Perfil'),
+    ];
+
+    return NavigationBar(
+      height: 64,
+      selectedIndex: indiceSelecionado,
+      onDestinationSelected: aoMudarAba,
+      backgroundColor: Colors.white,
+      indicatorColor: Colors.transparent,
+      elevation: 6,
+      shadowColor: Colors.black12,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      destinations: [
+        for (var i = 0; i < itens.length; i++)
+          NavigationDestination(
+            icon: Icon(
+              itens[i].$1,
+              color: i == indiceSelecionado
+                  ? const Color(0xFF142340)
+                  : const Color(0xFF7A8795),
+            ),
+            selectedIcon: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 24,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE59828),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Icon(itens[i].$1, color: const Color(0xFF142340)),
+              ],
+            ),
+            label: itens[i].$2,
+          ),
+      ],
+    );
+  }
+}
+

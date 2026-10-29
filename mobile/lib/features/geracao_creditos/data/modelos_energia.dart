@@ -1,4 +1,5 @@
 // autora: Maria Júlia Lazarini Oleto
+// RA: 25006031
 
 // siginificado do arquivo:
 // define os objetos usados no resumo de geracao e credito

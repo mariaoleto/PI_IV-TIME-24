@@ -1,4 +1,6 @@
 // autora: Maria Júlia Lazarini Oleto
+// RA: 25006031
+
 // significado do arquivo:
 // define os modelos de dados utilizados no painel administrativo do membro (dashboard)
 

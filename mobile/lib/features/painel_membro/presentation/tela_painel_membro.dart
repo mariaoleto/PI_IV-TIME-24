@@ -1,4 +1,6 @@
 // autora: Maria Júlia Lazarini Oleto
+// RA: 25006031
+
 // significado do arquivo:
 // tela inicial do painel administrativo do membro (dashboard principal com créditos, métricas e geração)
 

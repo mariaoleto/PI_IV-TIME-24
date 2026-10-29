@@ -1,10 +1,14 @@
 // autora: Maria Júlia Lazarini Oleto
+// RA: 25006031
+
 // significado do arquivo: tela do registro de geração (admin)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../domain/repositorio_energia.dart';
+import '../../painel_admin/domain/repositorio_painel_admin.dart';
+import '../../painel_admin/presentation/tela_painel_admin.dart';
 
 class TelaLancamentoGeracao extends StatefulWidget {
   const TelaLancamentoGeracao({
@@ -320,13 +324,35 @@ class _CabecalhoAdmin extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final podeVoltar = Navigator.of(context).canPop();
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(22, 20, 22, 22),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          if (podeVoltar)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: InkWell(
+                onTap: () => Navigator.of(context).pop(),
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.10),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+          const Text(
             'Geração e Consumo',
             style: TextStyle(
               color: Colors.white,
@@ -335,8 +361,8 @@ class _CabecalhoAdmin extends StatelessWidget {
               letterSpacing: -0.3,
             ),
           ),
-          SizedBox(height: 5),
-          Text(
+          const SizedBox(height: 5),
+          const Text(
             'Lançamento de dados mensais',
             style: TextStyle(
               color: Color(0xFF8F9EB3),
@@ -780,7 +806,23 @@ class _NavegacaoInferiorAdmin extends StatelessWidget {
 
     return NavigationBar(
       height: 64,
-      selectedIndex: 3, // "Relatórios" selecionado conforme protótipo
+      selectedIndex: 3,
+      onDestinationSelected: (indice) {
+        if (indice == 0) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => TelaPainelAdmin(
+                  repositorio: RepositorioApiPainelAdmin(),
+                  repositorioEnergia: RepositorioApiEnergia(),
+                ),
+              ),
+            );
+          }
+        }
+      },
       backgroundColor: Colors.white,
       indicatorColor: Colors.transparent,
       elevation: 6,

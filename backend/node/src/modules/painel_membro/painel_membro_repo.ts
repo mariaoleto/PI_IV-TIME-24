@@ -1,4 +1,6 @@
 // autora: Maria Júlia Lazarini Oleto
+// RA: 25006031
+
 // significado do arquivo:
 // consultas de banco de dados para o painel administrativo do membro (dashboard)
 

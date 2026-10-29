@@ -1,4 +1,6 @@
 // autora: Maria Júlia Lazarini Oleto
+// RA: 25006031
+
 // significado do arquivo:
 // controller que recebe a requisição HTTP do dashboard do membro e retorna os dados consolidados
 
