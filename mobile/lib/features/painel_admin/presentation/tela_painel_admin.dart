@@ -396,8 +396,10 @@ class _CartaoUsinaAtiva extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.end,
+            spacing: 10,
+            runSpacing: 4,
             children: [
               Text(
                 mes.registrado
@@ -410,8 +412,7 @@ class _CartaoUsinaAtiva extends StatelessWidget {
                   letterSpacing: -0.5,
                 ),
               ),
-              if (variacao != null) ...[
-                const SizedBox(width: 10),
+              if (variacao != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 5),
                   child: Text(
@@ -426,7 +427,6 @@ class _CartaoUsinaAtiva extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
             ],
           ),
           const SizedBox(height: 16),
