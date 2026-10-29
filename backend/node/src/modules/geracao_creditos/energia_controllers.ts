@@ -9,6 +9,8 @@ import {
   listarCotasDistribuicao,
   registrarLancamentoMensal,
 } from "./energia_service";
+// ponte de comunicação TCP com o Java
+import { enviarComandoTcp } from "../../utils/cliente_tcp_java";
 
 // monta e retorna em formato json o resumo dos dados baseado no ano, usina e membro
 export async function buscarResumoEnergia(
@@ -69,5 +71,29 @@ export async function salvarLancamentoMensal(
     resposta.status(201).json(resultado);
   } catch (erro) {
     proximo(erro);
+  }
+}
+
+// consulta a telemetria do servidor TCP em Java 
+export async function consultarTelemetriaTcp(_requisicao: Request, resposta: Response,) {
+  try {
+    // envia o comando STATUS_USINA pelo Socket TCP na porta 5050
+    const respostaJava = await enviarComandoTcp("STATUS_USINA");
+
+    // se o Java responder com sucesso, devolve os dados em json
+    resposta.json({
+      status_servidor_tcp: "online",
+      servidor: "Java Socket TCP (porta 5050)",
+      telemetria: respostaJava,
+    });
+  } catch (erro) {
+    // se o java estiver desligado, ele avisa sem travar 
+    const mensagemErro = erro instanceof Error ? erro.message : "Erro desconhecido";
+    resposta.status(503).json({
+      status_servidor_tcp: "offline",
+      servidor: "Java Socket TCP (porta 5050)",
+      mensagem: mensagemErro,
+      aviso: "Inicie o servidor Java com: java -cp backend/java/bin br.com.solis.tcp.TcpServer",
+    });
   }
 }
