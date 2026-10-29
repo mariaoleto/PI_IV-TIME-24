@@ -15,6 +15,9 @@ import {
   salvarOuAtualzarCredito,
 } from "./energia_repo";
 
+// comunicacao TCP com o servidor Java 
+import { enviarComandoTcp } from "../../utils/cliente_tcp_java";
+
 const rotulosMeses = [
   "Jan",
   "Fev",
@@ -202,6 +205,50 @@ export async function listarCotasDistribuicao(parametros: {
   }));
 }
 
+// envia o calculo das cotas para o servidor Java via Socket TCP 
+async function calcularCotasViaJavaTcp(geracaoKwh: number,
+  cotasPercentuais: number[],): Promise<{ [percentual: number]: number } | null> {
+  try {
+    // junta as cotas com virgula ex: 20,35,15
+    const cotasFormatadas = cotasPercentuais.join(",");
+    // cria o comando que vai ser enviado para o servidor java 
+    const comando = `CALCULAR_COTAS total=${geracaoKwh};cotas=${cotasFormatadas}`;
+
+    // envia o comando e guarda a resposta na const 
+    const respostaJava = await enviarComandoTcp(comando);
+
+    // se o java retornar com sucesso (comecando com OK)
+    if (respostaJava.startsWith("OK")) {
+      // cria um mapa de resultados com o percentual da cota = credito
+      const mapaResultados: { [percentual: number]: number } = {};
+
+      // divide a string de resposta depois do OK
+      const partes = respostaJava.replace(/^OK\s*/, "").split(";");
+
+      // percorre as partes da resposta e divide a cota do credito
+      for (const parte of partes) {
+        const [cotaStr, kwhStr] = parte.split("=");
+        if (cotaStr && kwhStr) {
+          const perc = parseFloat(cotaStr.replace("%", "").trim());
+          const kwh = parseFloat(kwhStr.replace("kWh", "").trim());
+          if (!isNaN(perc) && !isNaN(kwh)) {
+            mapaResultados[perc] = kwh;
+          }
+        }
+      }
+      // retorna o mapa com os resultados 
+      return mapaResultados;
+    }
+
+    // retorna null caso o servidor java nao esteja conectado 
+    // usa o calculo local para gerar os creditos
+    return null;
+  } catch (erro) {
+    console.warn("[Servidor TCP Java] Java offline ou ocupado, usando cálculo local.");
+    return null;
+  }
+}
+
 // registra o lancamento mensal da geracao e distribui os creditos entre os membros
 export async function registrarLancamentoMensal(dados: {
   mesReferencia: string;
@@ -224,14 +271,24 @@ export async function registrarLancamentoMensal(dados: {
     mesReferencia: dados.mesReferencia,
     geracaoKwh: dados.geracaoKwh,
   });
+
+  // pega os percentuais de cada cota
+  const percentuais = cotas.map((c) => paraNumero(c.percentual));
+
+  // manda o calculo para ser feito pelo servidor java via socket tcp
+  const resultadoJavaTcp = await calcularCotasViaJavaTcp(dados.geracaoKwh, percentuais);
+  const motorUtilizado = resultadoJavaTcp ? "Java Socket TCP (Porta 5050" : "Fallback Local Node.js";
+
   // faz a distribuicao dos creditos entre os membros 
   const distribuicao = await Promise.all(
     // mapeia os membros com as suas cotas
     // usando cota (cota com membro) como parametro
     cotas.map(async (cota) => {
       const percentual = paraNumero(cota.percentual);
+
       // calcula os creditos
-      const creditosCalculados = Number((dados.geracaoKwh * (percentual / 100)).toFixed(1));
+      const creditosCalculados = resultadoJavaTcp && resultadoJavaTcp[percentual] !== undefined ? resultadoJavaTcp[percentual] : Number((dados.geracaoKwh * (percentual / 100)).toFixed(1));
+
       // salva ou atualiza no banco
       await salvarOuAtualzarCredito({
         usinaId,
@@ -241,6 +298,7 @@ export async function registrarLancamentoMensal(dados: {
         percentualCota: percentual,
         creditosLiquidosKwh: creditosCalculados,
       });
+
       // retorna os dados do map
       return {
         membro_id: cota.membro_id!.toString(),
@@ -250,11 +308,13 @@ export async function registrarLancamentoMensal(dados: {
       };
     }),
   );
+
   // retorna os dados do lançamento mensal 
   return {
     mensagem: "Dados lançados e créditos distribuídos com sucesso!",
     mes_referencia: dados.mesReferencia,
     geracao_total_kwh: dados.geracaoKwh,
+    motor_calculo: motorUtilizado,
     membros_atualizados: distribuicao.length,
     distribuicao,
   };

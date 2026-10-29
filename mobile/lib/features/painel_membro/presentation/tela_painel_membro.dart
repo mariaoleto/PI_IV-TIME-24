@@ -2,9 +2,11 @@
 // significado do arquivo:
 // tela inicial do painel administrativo do membro (dashboard principal com créditos, métricas e geração)
 
+import 'dart:convert';
 import 'dart:math' as matematica;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 import '../../geracao_creditos/domain/repositorio_energia.dart';
 import '../../geracao_creditos/presentation/tela_energia.dart';
@@ -52,9 +54,7 @@ class _EstadoTelaPainelMembro extends State<TelaPainelMembro> {
       // Navega para a tela de Energia
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => TelaEnergia(
-            repositorio: RepositorioApiEnergia(),
-          ),
+          builder: (_) => TelaEnergia(repositorio: RepositorioApiEnergia()),
         ),
       );
     }
@@ -79,13 +79,13 @@ class _EstadoTelaPainelMembro extends State<TelaPainelMembro> {
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  SliverToBoxAdapter(
-                    child: _SecaoCabecalho(dados: dados),
-                  ),
+                  SliverToBoxAdapter(child: _SecaoCabecalho(dados: dados)),
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
+                        const _CartaoTelemetriaTcp(),
+                        const SizedBox(height: 14),
                         _GridMetricas(dados: dados),
                         const SizedBox(height: 16),
                         _CartaoGeracaoMensal(dados: dados),
@@ -179,7 +179,10 @@ class _SecaoCabecalho extends StatelessWidget {
               const SizedBox(height: 10),
               // Chip com percentual da cota
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(16),
@@ -316,9 +319,7 @@ class _CartaoCreditos extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: FractionallySizedBox(
                 widthFactor: progresso,
-                child: Container(
-                  color: const Color(0xFFF4A12B),
-                ),
+                child: Container(color: const Color(0xFFF4A12B)),
               ),
             ),
           ),
@@ -401,7 +402,8 @@ class _GridMetricas extends StatelessWidget {
                 icone: Icons.calendar_today_outlined,
                 corFundoIcone: const Color(0xFFEFF6FF),
                 corIcone: const Color(0xFF475569),
-                valor: '${dados.mediaDiariaKwh.toStringAsFixed(1).replaceAll('.', ',')} kWh',
+                valor:
+                    '${dados.mediaDiariaKwh.toStringAsFixed(1).replaceAll('.', ',')} kWh',
                 titulo: 'Média diária',
                 subtitulo: 'últimos 30d',
               ),
@@ -412,7 +414,8 @@ class _GridMetricas extends StatelessWidget {
                 icone: Icons.trending_up,
                 corFundoIcone: const Color(0xFFFEF2F2),
                 corIcone: const Color(0xFFEF4444),
-                valor: '${dados.picoConsumoKwh.toStringAsFixed(1).replaceAll('.', ',')} kWh',
+                valor:
+                    '${dados.picoConsumoKwh.toStringAsFixed(1).replaceAll('.', ',')} kWh',
                 titulo: 'Pico consumo',
                 subtitulo: dados.picoConsumoData,
               ),
@@ -577,8 +580,8 @@ class _CartaoGeracaoMensal extends StatelessWidget {
                                   final proporcao = maiorValor > 0
                                       ? (item.valorKwh / maiorValor)
                                       : 0.1;
-                                  final alturaBarra =
-                                      (alturaMaxima * proporcao).clamp(12.0, alturaMaxima);
+                                  final alturaBarra = (alturaMaxima * proporcao)
+                                      .clamp(12.0, alturaMaxima);
 
                                   return Container(
                                     height: alturaBarra,
@@ -834,6 +837,186 @@ class _BarraNavegacaoMembro extends StatelessWidget {
             label: itens[i].$2,
           ),
       ],
+    );
+  }
+}
+
+// Card compacto e elegante de status da telemetria do servidor Java TCP
+class _CartaoTelemetriaTcp extends StatefulWidget {
+  const _CartaoTelemetriaTcp();
+
+  @override
+  State<_CartaoTelemetriaTcp> createState() => _EstadoCartaoTelemetriaTcp();
+}
+
+class _EstadoCartaoTelemetriaTcp extends State<_CartaoTelemetriaTcp> {
+  bool _carregando = true;
+  bool _online = false;
+  String _potencia = '14.2 kW';
+  String _tensao = '220V';
+
+  @override
+  void initState() {
+    super.initState();
+    _buscarTelemetria();
+  }
+
+  Future<void> _buscarTelemetria() async {
+    try {
+      final uri = Uri.parse(
+        '${RepositorioApiPainelMembro.urlPadrao}/energia/telemetria-tcp',
+      );
+      final resposta = await http
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 3));
+
+      if (resposta.statusCode == 200) {
+        final mapa = jsonDecode(utf8.decode(resposta.bodyBytes));
+        final telemetria = mapa['telemetria']?.toString() ?? '';
+
+        String pot = '14.2 kW';
+        String tens = '220V';
+
+        final matchPot = RegExp(
+          r'GERACAO_ATUAL=([^\s]+)',
+        ).firstMatch(telemetria);
+        if (matchPot != null) {
+          pot = matchPot.group(1) ?? pot;
+        }
+
+        final matchTens = RegExp(r'TENSAO=([^\s]+)').firstMatch(telemetria);
+        if (matchTens != null) {
+          tens = matchTens.group(1) ?? tens;
+        }
+
+        if (mounted) {
+          setState(() {
+            _online = mapa['status_servidor_tcp'] == 'online';
+            _potencia = pot;
+            _tensao = tens;
+            _carregando = false;
+          });
+        }
+        return;
+      }
+    } catch (_) {
+      // Se falhar ou o servidor estiver desligado
+    }
+
+    if (mounted) {
+      setState(() {
+        _online = false;
+        _carregando = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Mini ícone solar
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.bolt_rounded,
+              color: Color(0xFFF4A12B),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Informações de texto
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Telemetria TCP · Usina Solis 1',
+                  style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  _online
+                      ? '$_potencia · $_tensao'
+                      : (_carregando
+                            ? 'Consultando inversor...'
+                            : 'Inversor em espera'),
+                  style: const TextStyle(
+                    color: Color(0xFF142340),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Chip discreto com o status da conexão
+          InkWell(
+            onTap: _buscarTelemetria,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: _online
+                    ? const Color(0xFFECFDF5)
+                    : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: _online
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFF94A3B8),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    _online ? 'Java TCP' : 'Offline',
+                    style: TextStyle(
+                      color: _online
+                          ? const Color(0xFF047857)
+                          : const Color(0xFF64748B),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
