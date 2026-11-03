@@ -1,5 +1,14 @@
 # Dicionário de Dados: Sistema de gerenciação de energia solar compartilhada da empresa Solis.
 
+# Time 24 
+
+# Integrantes:
+Ana Luísa Maso Mafra - 25007997  
+Lara Brondi Fraccaroli - 25001358  
+Maria Júlia Lazarini Oleto - 25006031  
+Marina Hehnes Espósito - 25000937
+
+
 ## 1. Histórico de versões (ou revisões)
 
 | Data | Autor | Versão | Comentários |
@@ -159,7 +168,7 @@
 |(MC) =  Multivalorado e Composto (lista / array etc de um tipo composto)|
 
 
-### 3.1. <Localização> (Composto)
+### 3.1. Localização (Composto)
 
 > Localização é composto de dois atributos: "cidade" e "estado", que guardam os dados principais da onde a usina está localizada.
 
@@ -168,7 +177,7 @@
 | cidade | Texto | Sim | Cidade aonde a usina está localizada. |
 | estado | Texto | Sim | Estado aonde a usina está localizada. |
 
-### 3.2. <Rateio> (Multivalorado e Composto)
+### 3.2. Rateio (Multivalorado e Composto)
 
 > Rateio é composto de um array de objetos numerados, que possuem os atributos: membro_id; percentual e valor_reais, que mapeiam a distribuição de custo de um determinado serviço referente a usina, de acordo com o membro, seu percentual e o valor cobrado.
 
@@ -184,7 +193,7 @@
 
 | Entidade conceitual | Coleção | Estratégia |
 | :--- | :--- | :--- |
-| <Usina> | <usina> | Valores Embutidos |
+| Usina | usina | Valores Embutidos |
 
 ```json
 {
@@ -206,7 +215,7 @@ Justificativa:
 
 | Entidade conceitual | Coleção | Estratégia |
 | :--- | :--- | :--- |
-| <Cuso> | <custos> | Valores Referenciados (membro_id) e Embutidos|
+| Custo | custos | Valores Referenciados (membro_id) e Embutidos|
 
 
 ```json
