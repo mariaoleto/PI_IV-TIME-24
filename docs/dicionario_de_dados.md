@@ -1,8 +1,7 @@
 # Dicionário de Dados: Sistema de gerenciação de energia solar compartilhada da empresa Solis.
 
 # Time 24 
-
-# Integrantes:
+Integrantes:
 Ana Luísa Maso Mafra - 25007997  
 Lara Brondi Fraccaroli - 25001358  
 Maria Júlia Lazarini Oleto - 25006031  
