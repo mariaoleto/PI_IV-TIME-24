@@ -30,7 +30,7 @@ public class PedidoCalcularCotas extends Comunicado {
         if (obj.getClass() != this.getClass())
             return false;
         PedidoCalcularCotas o = (PedidoCalcularCotas) obj;
-        if (!this.payload().equals(o.payload()))
+        if (!this.payload.equals(o.payload))
             return false;
         return true;
     }

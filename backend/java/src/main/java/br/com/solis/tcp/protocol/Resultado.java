@@ -31,7 +31,7 @@ public class Resultado extends Comunicado {
         if (obj.getClass() != this.getClass())
             return false;
         Resultado r = (Resultado) obj;
-        if (!this.payload().equals(r.payload()))
+        if (!this.conteudo.equals(r.conteudo))
             return false;
         return true;
     }
