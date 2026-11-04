@@ -1,36 +1,27 @@
-// autora original: Lara Brondi
-// regras de energia e rateio de cotas e créditos: Maria Júlia Lazarini Oleto RA: 25006031
+// autora: Maria Júlia Lazarini Oleto RA: 25006031
 // siginificado do arquivo:
-// recebe o comando e decide a resposta
+// recebe o comando e decide a resposta utilizando o padrão de pedidos herdados de Comunicado
 
 package br.com.solis.tcp.service;
 
-import br.com.solis.tcp.protocol.ProtocolMessage;
+import br.com.solis.tcp.protocol.PedidoCalcularCotas;
 import java.util.ArrayList;
 import java.util.List;
 
 public class TcpService {
 
-    public String process(ProtocolMessage message) {
-        return switch (message.command()) {
-            case "PING" -> "PONG";
-            case "ECHO" -> message.payload().isEmpty()
-                    ? "ERROR: use ECHO <texto>"
-                    : "OK: " + message.payload();
-            // status usina
-            case "STATUS_USINA" -> "OK USINA=Solis_1 STATUS=OPERANDO GERACAO_ATUAL=14.2kW TENSAO=220V FREQ=60Hz";
-            // calculo de créditos por cota
-            case "CALCULAR_COTAS" -> processarCalculoCotas(message.payload());
-            case "HELP" -> "Comandos: PING, ECHO <texto>, HELP, SAIR";
-            case "SAIR", "QUIT" -> "BYE";
-            case "" -> "ERROR: mensagem vazia";
-            default -> "ERROR: comando desconhecido. Envie HELP.";
-        };
+    // calcula a quantidade de kwh de cada membro recebendo a classe
+    // PedidoCalcularCotas herdada de Comunicado
+    public String pedidoProcessarCalculoCotas(PedidoCalcularCotas pedido) {
+        if (pedido == null) {
+            return "ERROR: pedido de cálculo nulo";
+        }
+        return pedidoProcessarCalculoCotas(pedido.getPayload());
     }
 
     // calcula a quantidade de kwh de cada membro
     // com base na cota percentual
-    private String processarCalculoCotas(String payload) {
+    public String pedidoProcessarCalculoCotas(String payload) {
         try {
             // verifica se o payload tem o formato correto
             if (payload == null || !payload.contains("total=") || !payload.contains("cotas=")) {
@@ -39,7 +30,7 @@ public class TcpService {
             // split que divide o payload em parte com ";"
             String[] partes = payload.split(";");
             double totalGeracao = 0;
-            // split que divide a string de cotas c,m ";"
+            // split que divide a string de cotas com ";"
             String[] cotasStr = new String[0];
 
             // for para separar o payload em partes
