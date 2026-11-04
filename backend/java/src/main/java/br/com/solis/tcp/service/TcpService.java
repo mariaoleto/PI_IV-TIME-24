@@ -1,5 +1,5 @@
 // autora original: Lara Brondi
-// regras de energia e rateio de cotas: Maria Júlia Lazarini Oleto RA: 25006031
+// regras de energia e rateio de cotas e créditos: Maria Júlia Lazarini Oleto RA: 25006031
 // siginificado do arquivo:
 // recebe o comando e decide a resposta
 
