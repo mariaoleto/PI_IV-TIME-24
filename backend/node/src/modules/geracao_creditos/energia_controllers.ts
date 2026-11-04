@@ -94,7 +94,7 @@ export async function consultarTelemetriaTcp(_requisicao: Request, resposta: Res
       status_servidor_tcp: "offline",
       servidor: "Java Socket TCP (porta 5050)",
       mensagem: mensagemErro,
-      aviso: "Inicie o servidor Java com: java -cp backend/java/bin br.com.solis.tcp.TcpServer",
+      aviso: "Inicie o servidor Java com: java -cp backend/java/bin br.com.solis.tcp.Servidor",
     });
   }
 }
