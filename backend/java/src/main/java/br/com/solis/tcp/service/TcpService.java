@@ -11,6 +11,7 @@ import java.util.List;
 
 public class TcpService {
 
+    // casos com o command -> payload (comando enviado _> resposta)
     public String process(ProtocolMessage message) {
         return switch (message.command()) {
             case "PING" -> "PONG";
@@ -22,6 +23,7 @@ public class TcpService {
             // calculo de créditos por cota
             case "CALCULAR_COTAS" -> processarCalculoCotas(message.payload());
             case "HELP" -> "Comandos: PING, ECHO <texto>, HELP, SAIR";
+            // encerramento
             case "SAIR", "QUIT" -> "BYE";
             case "" -> "ERROR: mensagem vazia";
             default -> "ERROR: comando desconhecido. Envie HELP.";
