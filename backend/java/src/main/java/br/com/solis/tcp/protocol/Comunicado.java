@@ -31,7 +31,7 @@ public class Comunicado implements Serializable, Cloneable {
         if (obj.getClass() != this.getClass())
             return false;
         Comunicado o = (Comunicado) obj;
-        if (!this.comando().equals(o.comando))
+        if (!this.comando.equals(o.comando))
             return false;
         return true;
     }
