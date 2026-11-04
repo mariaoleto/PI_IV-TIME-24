@@ -1,5 +1,5 @@
 // autora estrutura: Lara Brondi 
-// adaptação: Maria Júlia Lazarini Oleto
+// adaptação: Maria Júlia Lazarini Oleto RA: 25006031
 // significado do arquivo: 
 // classe que representa a mensagem enviada/recebida no protocolo TCP
 // encapsula o nome do comando (command) e o conteúdo que veio após o comando (payload)
