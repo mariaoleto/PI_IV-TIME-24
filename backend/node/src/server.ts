@@ -10,6 +10,9 @@ import cors from "cors";
 import { env } from "./config/env";
 import roteadorEnergia from "./modules/geracao_creditos/energia_routes";
 import roteadorPainelAdmin from "./modules/painel_admin/painel_routes";
+import roteadorPainelMembro from "./modules/painel_membro/painel_membro_routes";
+import roteadorPerfil from "./modules/perfil/perfil_routes";
+import roteadorAuth from "./modules/auth/auth_routes";
 
 // garante resolução de DNS segura para MongoDB Atlas em ambientes locais/Windows
 try {
@@ -31,6 +34,9 @@ app.get("/", (_req, res) => {
 // usa a rota para receber e enviar dados
 app.use("/energia", roteadorEnergia);
 app.use("/admin", roteadorPainelAdmin);
+app.use("/painel-membro", roteadorPainelMembro); // o app já chama /painel-membro, mas a rota não estava montada
+app.use("/auth", roteadorAuth); // cadastro, login (JWT) e recuperação de senha
+app.use("/perfil", roteadorPerfil); // protegido por token (veja perfil_routes.ts)
 
 // trata erros da rota
 app.use(

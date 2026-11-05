@@ -3,13 +3,19 @@ import 'package:flutter/material.dart';
 import '../../painel_membro/domain/repositorio_painel_membro.dart';
 import '../../painel_membro/presentation/tela_painel_membro.dart';
 import '../data/servico_auth.dart';
+import '../data/sessao_auth.dart';
 import '../domain/validadores.dart';
 import 'tela_criar_conta.dart';
 import 'tela_login_admin.dart';
+import 'tela_recuperar_senha.dart';
 import 'widgets_auth.dart';
 
 class TelaLogin extends StatefulWidget {
-  const TelaLogin({super.key});
+  const TelaLogin({super.key, this.servicoAuth, this.destinoAposLogin});
+
+  // permitem trocar o serviço e a tela seguinte (útil nos testes)
+  final ServicoAuth? servicoAuth;
+  final Widget Function(BuildContext contexto, String email)? destinoAposLogin;
 
   @override
   State<TelaLogin> createState() => _EstadoTelaLogin();
@@ -17,7 +23,7 @@ class TelaLogin extends StatefulWidget {
 
 class _EstadoTelaLogin extends State<TelaLogin> {
   final _formulario = GlobalKey<FormState>();
-  final ServicoAuth _auth = ServicoAuthLocal();
+  late final ServicoAuth _auth = widget.servicoAuth ?? ServicoAuthApi();
   bool _carregando = false;
   final _email = TextEditingController();
   final _senha = TextEditingController();
@@ -35,13 +41,16 @@ class _EstadoTelaLogin extends State<TelaLogin> {
     try {
       await _auth.entrarMembro(email: _email.text.trim(), senha: _senha.text);
       if (!mounted) return;
-      // passa o email digitado para o painel do membro
+      // passa o e-mail da conta (vindo do backend) para o painel do membro
+      final email = SessaoAuth.instancia.usuario?.email ?? _email.text.trim();
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => TelaPainelMembro(
-            repositorio: RepositorioApiPainelMembro(),
-            emailMembro: _email.text.trim(),
-          ),
+          builder: (contexto) =>
+              widget.destinoAposLogin?.call(contexto, email) ??
+              TelaPainelMembro(
+                repositorio: RepositorioApiPainelMembro(),
+                emailMembro: email,
+              ),
         ),
       );
     } catch (erro) {
@@ -56,8 +65,13 @@ class _EstadoTelaLogin extends State<TelaLogin> {
   }
 
   void _esqueciSenha() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Recuperação de senha em breve.')),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TelaRecuperarSenha(
+          servicoAuth: _auth,
+          emailInicial: _email.text.trim(),
+        ),
+      ),
     );
   }
 
@@ -144,16 +158,30 @@ class _EstadoTelaLogin extends State<TelaLogin> {
             style: TextStyle(color: Color(0xFFB0B6C0), fontSize: 11),
           ),
           const SizedBox(height: 14),
-          GestureDetector(
-            onTap: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const TelaLoginAdmin())),
-            child: const Text(
-              'Entrar como administrador',
-              style: TextStyle(
-                color: Color(0xFF5B6472),
-                fontSize: 12,
-                decoration: TextDecoration.underline,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        TelaLoginAdmin(servicoAuth: widget.servicoAuth),
+                  ),
+                ),
+                icon: const Icon(Icons.shield_outlined, size: 18),
+                label: const Text(
+                  'Entrar como Administrador',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: corPrimaria,
+                  side: const BorderSide(color: Color(0xFFD0D5DD)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
               ),
             ),
           ),

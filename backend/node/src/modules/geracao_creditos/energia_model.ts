@@ -69,8 +69,19 @@ const membroSchema = new Schema(
   {
     nome: { type: String, required: true },
     email: String,
-    tipo_usuario: String,
+    tipo_usuario: String, // "membro" ou "admin" (quem for "admin" vê o botão Painel Administrador)
     usina_id: Schema.Types.ObjectId,
+    cpf: String, // somente os 11 dígitos (cadastro). nunca devolvido pela API
+    telefone: String, // somente dígitos, ex.: "19999998888" (módulo perfil)
+    senha_hash: String, // hash scrypt da senha (módulo perfil). nunca devolvido pela API
+    data_cadastro: Date, // usado no "Membro desde" do perfil
+    senha_alterada_em: Date,
+    atualizado_em: Date,
+    ultimo_login_em: Date, // módulo auth
+    recuperacao_codigo_hash: String, // módulo auth: HMAC do código de 6 dígitos (nunca o código)
+    recuperacao_expira_em: Date,
+    recuperacao_enviada_em: Date,
+    recuperacao_tentativas: Number,
   },
   opcoesFlexiveis,
 );

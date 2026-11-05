@@ -12,6 +12,8 @@ import 'package:http/http.dart' as http;
 
 import '../../geracao_creditos/domain/repositorio_energia.dart';
 import '../../geracao_creditos/presentation/tela_energia.dart';
+import '../../perfil/domain/repositorio_perfil.dart';
+import '../../perfil/presentation/tela_perfil.dart';
 import '../domain/repositorio_painel_membro.dart';
 
 class TelaPainelMembro extends StatefulWidget {
@@ -31,15 +33,19 @@ class TelaPainelMembro extends StatefulWidget {
 class _EstadoTelaPainelMembro extends State<TelaPainelMembro> {
   late Future<DadosPainelMembro> _dashboardFuturo;
 
+  // e-mail do membro logado; muda se ele editar o e-mail na tela de Perfil
+  String? _emailMembro;
+
   @override
   void initState() {
     super.initState();
+    _emailMembro = widget.emailMembro;
     _carregarDashboard();
   }
 
   void _carregarDashboard() {
     _dashboardFuturo = widget.repositorio.buscarDashboard(
-      email: widget.emailMembro,
+      email: _emailMembro,
       ano: 2026,
     );
   }
@@ -57,6 +63,24 @@ class _EstadoTelaPainelMembro extends State<TelaPainelMembro> {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => TelaEnergia(repositorio: RepositorioApiEnergia()),
+        ),
+      );
+    }
+    if (indice == 3) {
+      // Navega para a tela de Perfil
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TelaPerfil(
+            repositorio: RepositorioApiPerfil(),
+            email: _emailMembro,
+            // se o e-mail mudou, o painel passa a buscar os dados pelo e-mail novo
+            aoPerfilAtualizado: (perfil) {
+              setState(() {
+                _emailMembro = perfil.email;
+                _carregarDashboard();
+              });
+            },
+          ),
         ),
       );
     }

@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../data/servico_auth.dart';
+import '../domain/cpf.dart';
 import '../domain/validadores.dart';
+import 'tela_criar_conta_passo2.dart';
 import 'widgets_auth.dart';
 
 class TelaCriarConta extends StatefulWidget {
-  const TelaCriarConta({super.key});
+  const TelaCriarConta({super.key, this.servicoAuth, this.destinoAposCadastro});
+
+  // permitem trocar o serviço e a tela seguinte (útil nos testes)
+  final ServicoAuth? servicoAuth;
+  final Widget Function(BuildContext contexto, String email)? destinoAposCadastro;
 
   @override
   State<TelaCriarConta> createState() => _EstadoTelaCriarConta();
@@ -14,19 +21,28 @@ class _EstadoTelaCriarConta extends State<TelaCriarConta> {
   final _formulario = GlobalKey<FormState>();
   final _nome = TextEditingController();
   final _email = TextEditingController();
+  final _cpf = TextEditingController();
 
   @override
   void dispose() {
     _nome.dispose();
     _email.dispose();
+    _cpf.dispose();
     super.dispose();
   }
 
   void _continuar() {
     if (!_formulario.currentState!.validate()) return;
-    // TODO: seguir para o passo 2 do cadastro (ainda não existe).
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Passo 2 do cadastro em breve.')),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => TelaCriarContaPasso2(
+          nome: _nome.text.trim(),
+          email: _email.text.trim(),
+          cpf: cpfSoDigitos(_cpf.text),
+          servicoAuth: widget.servicoAuth,
+          destinoAposCadastro: widget.destinoAposCadastro,
+        ),
+      ),
     );
   }
 
@@ -105,6 +121,15 @@ class _EstadoTelaCriarConta extends State<TelaCriarConta> {
             controlador: _email,
             tipoTeclado: TextInputType.emailAddress,
             validador: validarEmail,
+          ),
+          const SizedBox(height: 16),
+          CampoAuth(
+            rotulo: 'CPF',
+            dica: '000.000.000-00',
+            controlador: _cpf,
+            tipoTeclado: TextInputType.number,
+            formatadores: [MascaraCpf()],
+            validador: validarCpf,
           ),
           const SizedBox(height: 16),
           _cartaoInformativo(),

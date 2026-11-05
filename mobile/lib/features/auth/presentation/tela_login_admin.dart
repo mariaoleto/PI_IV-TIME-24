@@ -4,11 +4,14 @@ import '../../geracao_creditos/domain/repositorio_energia.dart';
 import '../../painel_admin/domain/repositorio_painel_admin.dart';
 import '../../painel_admin/presentation/tela_painel_admin.dart';
 import '../data/servico_auth.dart';
+import '../data/sessao_auth.dart';
 import '../domain/validadores.dart';
 import 'widgets_auth.dart';
 
 class TelaLoginAdmin extends StatefulWidget {
-  const TelaLoginAdmin({super.key});
+  const TelaLoginAdmin({super.key, this.servicoAuth});
+
+  final ServicoAuth? servicoAuth; // permite trocar o serviço (útil nos testes)
 
   @override
   State<TelaLoginAdmin> createState() => _EstadoTelaLoginAdmin();
@@ -16,7 +19,7 @@ class TelaLoginAdmin extends StatefulWidget {
 
 class _EstadoTelaLoginAdmin extends State<TelaLoginAdmin> {
   final _formulario = GlobalKey<FormState>();
-  final ServicoAuth _auth = ServicoAuthLocal();
+  late final ServicoAuth _auth = widget.servicoAuth ?? ServicoAuthApi();
   bool _carregando = false;
   final _email = TextEditingController();
   final _senha = TextEditingController();
@@ -42,6 +45,7 @@ class _EstadoTelaLoginAdmin extends State<TelaLoginAdmin> {
           builder: (_) => TelaPainelAdmin(
             repositorio: RepositorioApiPainelAdmin(),
             repositorioEnergia: RepositorioApiEnergia(),
+            nomeAdmin: SessaoAuth.instancia.usuario?.nome,
           ),
         ),
         (rota) => false,

@@ -11,13 +11,18 @@ try {
 }
 
 // valida a presenca das variaveis obrigatorias antes de subir o servidor
-const variaveisObrigatorias = ["MONGODB_URI"];
+const variaveisObrigatorias = ["MONGODB_URI", "JWT_SECRET"];
 
 variaveisObrigatorias.forEach((key) => {
   if (!process.env[key]) {
     throw new Error(`Variavel de ambiente obrigatoria ausente: ${key}`);
   }
 });
+
+// o segredo do JWT precisa ser longo, senão qualquer um consegue forjar tokens
+if ((process.env.JWT_SECRET ?? "").length < 16) {
+  throw new Error("JWT_SECRET precisa ter pelo menos 16 caracteres");
+}
 
 // exporta as variaveis para uso no restante da aplicacao
 export const ambiente = {

@@ -121,6 +121,7 @@ class CampoAuth extends StatefulWidget {
     this.tipoTeclado,
     this.autofocus = false,
     this.validador,
+    this.formatadores,
   });
 
   final String rotulo;
@@ -130,6 +131,8 @@ class CampoAuth extends StatefulWidget {
   final TextInputType? tipoTeclado;
   final bool autofocus;
   final String? Function(String?)? validador;
+  // máscaras de digitação (ex.: telefone na tela Editar perfil)
+  final List<TextInputFormatter>? formatadores;
 
   @override
   State<CampoAuth> createState() => _EstadoCampoAuth();
@@ -164,6 +167,7 @@ class _EstadoCampoAuth extends State<CampoAuth> {
           keyboardType: widget.tipoTeclado,
           autofocus: widget.autofocus,
           validator: widget.validador,
+          inputFormatters: widget.formatadores,
           style: const TextStyle(color: corPrimaria, fontSize: 15),
           decoration: InputDecoration(
             hintText: widget.dica,
