@@ -47,6 +47,7 @@ abstract class ServicoAuth {
     required String cpf, // somente dígitos
     String? telefone,
     required String senha,
+    String tipoConta = 'membro', // 'membro' ou 'admin'
   });
 
   /// Pede o envio do código de 6 dígitos por e-mail.
@@ -97,6 +98,7 @@ class ServicoAuthApi implements ServicoAuth {
     required String cpf,
     String? telefone,
     required String senha,
+    String tipoConta = 'membro',
   }) async {
     final corpo = await _post('/auth/cadastro', {
       'nome': nome,
@@ -105,6 +107,7 @@ class ServicoAuthApi implements ServicoAuth {
       'telefone': telefone,
       'senha': senha,
       'confirmar_senha': senha,
+      'tipo_conta': tipoConta,
     });
     _iniciarSessao(corpo);
   }
@@ -209,6 +212,7 @@ class ServicoAuthLocal implements ServicoAuth {
     required String cpf,
     String? telefone,
     required String senha,
+    String tipoConta = 'membro',
   }) => _esperar();
 
   @override

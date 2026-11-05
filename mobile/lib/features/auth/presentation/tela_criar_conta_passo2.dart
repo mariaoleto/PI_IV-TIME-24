@@ -1,9 +1,14 @@
+//Autora: Ana Luísa Maso Mafra | RA: 25007997
+
 // significado do arquivo:
 // passo 2 do cadastro: telefone (opcional) e senha
 // ao concluir, o backend cria a conta (senha com hash) e devolve o token: o usuário já entra logado
 
 import 'package:flutter/material.dart';
 
+import '../../geracao_creditos/domain/repositorio_energia.dart';
+import '../../painel_admin/domain/repositorio_painel_admin.dart';
+import '../../painel_admin/presentation/tela_painel_admin.dart';
 import '../../painel_membro/domain/repositorio_painel_membro.dart';
 import '../../painel_membro/presentation/tela_painel_membro.dart';
 import '../../perfil/domain/formatadores_perfil.dart';
@@ -17,6 +22,7 @@ class TelaCriarContaPasso2 extends StatefulWidget {
     required this.nome,
     required this.email,
     required this.cpf,
+    this.tipoConta = 'membro',
     this.servicoAuth,
     this.destinoAposCadastro,
   });
@@ -25,6 +31,7 @@ class TelaCriarContaPasso2 extends StatefulWidget {
   final String nome;
   final String email;
   final String cpf; // somente dígitos
+  final String tipoConta; // 'membro' ou 'admin' (escolhido no passo 1)
 
   // permitem trocar o serviço e a tela seguinte (útil nos testes)
   final ServicoAuth? servicoAuth;
@@ -41,6 +48,8 @@ class _EstadoTelaCriarContaPasso2 extends State<TelaCriarContaPasso2> {
   final _senha = TextEditingController();
   final _confirmacao = TextEditingController();
   bool _carregando = false;
+
+  bool get _ehAdmin => widget.tipoConta == 'admin';
 
   @override
   void dispose() {
@@ -67,6 +76,7 @@ class _EstadoTelaCriarContaPasso2 extends State<TelaCriarContaPasso2> {
         cpf: widget.cpf,
         telefone: telefone.isEmpty ? null : telefone,
         senha: _senha.text,
+        tipoConta: widget.tipoConta,
       );
       if (!mounted) return;
       // conta criada e já logada: vai direto para o painel e apaga as telas de cadastro
@@ -74,10 +84,16 @@ class _EstadoTelaCriarContaPasso2 extends State<TelaCriarContaPasso2> {
         MaterialPageRoute(
           builder: (contexto) =>
               widget.destinoAposCadastro?.call(contexto, widget.email) ??
-              TelaPainelMembro(
-                repositorio: RepositorioApiPainelMembro(),
-                emailMembro: widget.email,
-              ),
+              (_ehAdmin
+                  ? TelaPainelAdmin(
+                      repositorio: RepositorioApiPainelAdmin(),
+                      repositorioEnergia: RepositorioApiEnergia(),
+                      nomeAdmin: widget.nome,
+                    )
+                  : TelaPainelMembro(
+                      repositorio: RepositorioApiPainelMembro(),
+                      emailMembro: widget.email,
+                    )),
         ),
         (rota) => false,
       );

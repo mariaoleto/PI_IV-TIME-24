@@ -20,6 +20,25 @@ import 'tela_editar_perfil.dart';
 import 'tela_seguranca.dart';
 import 'widgets_perfil.dart';
 
+// abre a tela de Perfil por cima da tela atual
+// usada pela aba "Perfil" do painel do membro e da tela Energia (todas as abas abrem o mesmo Perfil)
+Future<void> abrirTelaPerfil(
+  BuildContext context, {
+  String? email,
+  ValueChanged<PerfilMembro>? aoPerfilAtualizado,
+  RepositorioPerfil? repositorio, // permite trocar o repositório (útil nos testes)
+}) {
+  return Navigator.of(context).push<void>(
+    MaterialPageRoute(
+      builder: (_) => TelaPerfil(
+        repositorio: repositorio ?? RepositorioApiPerfil(),
+        email: email,
+        aoPerfilAtualizado: aoPerfilAtualizado,
+      ),
+    ),
+  );
+}
+
 class TelaPerfil extends StatefulWidget {
   const TelaPerfil({
     super.key,

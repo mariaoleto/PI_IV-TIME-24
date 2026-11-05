@@ -57,31 +57,32 @@ class _EstadoTelaPainelMembro extends State<TelaPainelMembro> {
     await _dashboardFuturo;
   }
 
+  // se o e-mail foi alterado no Perfil, o painel passa a buscar os dados pelo e-mail novo
+  void _aoPerfilAtualizado(PerfilMembro perfil) {
+    setState(() {
+      _emailMembro = perfil.email;
+      _carregarDashboard();
+    });
+  }
+
   void _aoSelecionarAba(int indice) {
     if (indice == 1) {
-      // Navega para a tela de Energia
+      // Navega para a tela de Energia (que também tem a aba Perfil, por isso recebe os mesmos dados)
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => TelaEnergia(repositorio: RepositorioApiEnergia()),
+          builder: (_) => TelaEnergia(
+            repositorio: RepositorioApiEnergia(),
+            emailMembro: _emailMembro,
+            aoPerfilAtualizado: _aoPerfilAtualizado,
+          ),
         ),
       );
     }
     if (indice == 3) {
-      // Navega para a tela de Perfil
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TelaPerfil(
-            repositorio: RepositorioApiPerfil(),
-            email: _emailMembro,
-            // se o e-mail mudou, o painel passa a buscar os dados pelo e-mail novo
-            aoPerfilAtualizado: (perfil) {
-              setState(() {
-                _emailMembro = perfil.email;
-                _carregarDashboard();
-              });
-            },
-          ),
-        ),
+      abrirTelaPerfil(
+        context,
+        email: _emailMembro,
+        aoPerfilAtualizado: _aoPerfilAtualizado,
       );
     }
   }

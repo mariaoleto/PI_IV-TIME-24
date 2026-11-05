@@ -35,6 +35,7 @@ export function validarCadastro(
     telefone?: unknown;
     senha?: unknown;
     confirmar_senha?: unknown;
+    tipo_conta?: unknown; // "membro" (padrão) ou "admin": escolhido pela pessoa no cadastro
   },
   opcoes: { exigirCpf: boolean } = { exigirCpf: true },
 ) {
@@ -55,6 +56,13 @@ export function validarCadastro(
     campos.cpf = "CPF inválido";
   }
 
+  const tipoBruto = texto(entrada.tipo_conta).toLowerCase();
+  if (!["", "membro", "admin", "administrador"].includes(tipoBruto)) {
+    campos.tipo_conta = "Tipo de conta inválido";
+  }
+  const tipo: "membro" | "admin" =
+    tipoBruto === "admin" || tipoBruto === "administrador" ? "admin" : "membro";
+
   const senha = typeof entrada.senha === "string" ? entrada.senha : "";
   const erro = erroSenha(senha);
   if (erro) campos.senha = erro;
@@ -65,7 +73,7 @@ export function validarCadastro(
   if (Object.keys(campos).length > 0 || !dados) {
     throw new ErroHttp(400, "Dados inválidos", campos);
   }
-  return { ...dados, cpf: cpf === "" ? null : cpf, senha };
+  return { ...dados, cpf: cpf === "" ? null : cpf, senha, tipo };
 }
 
 export function validarLogin(entrada: { email?: unknown; senha?: unknown; perfil?: unknown }) {

@@ -382,3 +382,34 @@ test("redefinir senha: 5 códigos errados queimam o código (mesmo o certo falha
   assert.equal(await status(redefinirSenha({ email: "joao@email.com", codigo: certo, nova_senha: "nova12345" }, deps)), 400);
   assert.equal(await verificarSenha("antiga123", estado.membro!.senha_hash), true);
 });
+
+// ---------- cadastro como administrador (escolhido no seletor do cadastro) ----------
+
+const dadosAdmin = (extra: Record<string, unknown> = {}) => ({
+  nome: "Carla Admin",
+  email: "carla@solis.com",
+  cpf: CPF_VALIDO,
+  senha: "segredo123",
+  tipo_conta: "admin",
+  ...extra,
+});
+
+test("cadastro como administrador: conta nasce admin e recebe token de admin", async () => {
+  const { deps, estado } = montarDeps(null);
+  const r = await cadastrarMembro(dadosAdmin(), deps);
+  assert.equal(estado.membro!.tipo_usuario, "admin");
+  assert.equal(r.usuario.eh_admin, true);
+  assert.deepEqual(verificarToken(r.token), { id: ID, tipo: "admin" });
+});
+
+test("cadastro: sem tipo_conta (ou 'membro') cria membro; tipo inválido é recusado", async () => {
+  const { deps, estado } = montarDeps(null);
+  await cadastrarMembro(dadosAdmin({ tipo_conta: undefined }), deps);
+  assert.equal(estado.membro!.tipo_usuario, "membro");
+
+  const outro = montarDeps(null);
+  await cadastrarMembro(dadosAdmin({ tipo_conta: "membro" }), outro.deps);
+  assert.equal(outro.estado.membro!.tipo_usuario, "membro");
+
+  assert.equal(await status(cadastrarMembro(dadosAdmin({ tipo_conta: "dono" }), montarDeps(null).deps)), 400);
+});

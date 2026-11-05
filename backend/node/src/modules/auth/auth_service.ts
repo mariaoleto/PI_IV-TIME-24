@@ -78,7 +78,8 @@ function montarResposta(membro: Doc): RespostaAuth {
 // usado quando o e-mail não existe, para o tempo de resposta não revelar se a conta existe
 let hashFalso: Promise<string> | undefined;
 
-// POST /auth/cadastro  (sempre cria conta de "membro": o tipo nunca vem do app)
+// POST /auth/cadastro  { nome, email, cpf, telefone?, senha, tipo_conta?: "membro" | "admin" }
+// o campo "tipo_usuario" enviado pelo app é ignorado; o tipo da conta vem de "tipo_conta" (padrão: membro)
 export async function cadastrarMembro(
   entrada: Record<string, unknown>,
   deps: DepsAuth = depsPadrao,
@@ -104,7 +105,7 @@ export async function cadastrarMembro(
       cpf: dados.cpf,
       telefone: dados.telefone,
       senha_hash: await gerarHashSenha(dados.senha),
-      tipo_usuario: "membro",
+      tipo_usuario: dados.tipo,
       data_cadastro: deps.agora(),
     });
     return montarResposta(membro);

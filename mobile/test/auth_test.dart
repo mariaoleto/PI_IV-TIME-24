@@ -63,12 +63,14 @@ class ServicoAuthFalso implements ServicoAuth {
     required String cpf,
     String? telefone,
     required String senha,
+    String tipoConta = 'membro',
   }) => _registrar('cadastrar', {
     'nome': nome,
     'email': email,
     'cpf': cpf,
     'telefone': telefone,
     'senha': senha,
+    'tipo_conta': tipoConta,
   });
 
   @override
@@ -191,6 +193,28 @@ void main() {
       expect(corpo['telefone'], '19999998888');
       expect(corpo['senha'], 'segredo1');
       expect(SessaoAuth.instancia.logado, isTrue);
+    });
+
+    test('cadastro como administrador envia o tipo da conta', () async {
+      late Map<String, dynamic> corpo;
+      final servico = ServicoAuthApi(
+        urlBase: 'http://servidor',
+        clienteHttp: MockClient((requisicao) async {
+          corpo = jsonDecode(requisicao.body) as Map<String, dynamic>;
+          return _json(201, _respostaLogin(admin: true));
+        }),
+      );
+
+      await servico.cadastrar(
+        nome: 'Carla Admin',
+        email: 'carla@solis.com',
+        cpf: '52998224725',
+        senha: 'segredo1',
+        tipoConta: 'admin',
+      );
+
+      expect(corpo['tipo_conta'], 'admin');
+      expect(SessaoAuth.instancia.usuario?.ehAdmin, isTrue);
     });
 
     test('e-mail já cadastrado devolve o erro do campo', () async {
@@ -438,8 +462,46 @@ void main() {
         'cpf': '52998224725',
         'telefone': '19999998888',
         'senha': 'segredo1',
+        'tipo_conta': 'membro',
       });
       expect(find.text('painel de ana@gmail.com'), findsOneWidget);
+
+      await tester.binding.setSurfaceSize(null);
+    });
+
+    testWidgets('cadastro como administrador envia o tipo e vai direto ao fim', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      final servico = ServicoAuthFalso();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TelaCriarConta(
+            servicoAuth: servico,
+            destinoAposCadastro: (_, email) => Text('painel de $email'),
+          ),
+        ),
+      );
+
+      var campos = find.byType(TextFormField);
+      await tester.enterText(campos.at(0), 'Carla Admin');
+      await tester.enterText(campos.at(1), 'carla@solis.com');
+      await tester.enterText(campos.at(2), '52998224725');
+      await tester.tap(find.text('Administrador'));
+      await tester.pump();
+      await tester.tap(find.text('Continuar'));
+      await tester.pumpAndSettle();
+
+      // passo 2 é igual ao de membro: telefone, senha e confirmação (sem código)
+      campos = find.byType(TextFormField);
+      expect(campos, findsNWidgets(3));
+      await tester.enterText(campos.at(1), 'segredo1');
+      await tester.enterText(campos.at(2), 'segredo1');
+      await tester.tap(find.text('Criar conta'));
+      await tester.pumpAndSettle();
+
+      expect(servico.ultimosDados['tipo_conta'], 'admin');
+      expect(find.text('painel de carla@solis.com'), findsOneWidget);
 
       await tester.binding.setSurfaceSize(null);
     });

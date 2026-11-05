@@ -10,12 +10,25 @@ import 'package:flutter/services.dart';
 
 import '../../painel_membro/domain/repositorio_painel_membro.dart';
 import '../../painel_membro/presentation/tela_painel_membro.dart';
+import '../../perfil/domain/repositorio_perfil.dart';
+import '../../perfil/presentation/tela_perfil.dart';
 import '../domain/repositorio_energia.dart';
 
 class TelaEnergia extends StatefulWidget {
-  const TelaEnergia({super.key, required this.repositorio});
+  const TelaEnergia({
+    super.key,
+    required this.repositorio,
+    this.emailMembro,
+    this.aoPerfilAtualizado,
+    this.repositorioPerfil,
+  });
 
   final RepositorioEnergia repositorio;
+
+  // e-mail do membro logado: necessário para as abas Início e Perfil da barra inferior
+  final String? emailMembro;
+  final ValueChanged<PerfilMembro>? aoPerfilAtualizado;
+  final RepositorioPerfil? repositorioPerfil; // permite trocar o repositório (útil nos testes)
 
   @override
   State<TelaEnergia> createState() => _EstadoTelaEnergia();
@@ -24,6 +37,32 @@ class TelaEnergia extends StatefulWidget {
 class _EstadoTelaEnergia extends State<TelaEnergia> {
   late Future<ResumoEnergia> _resumoFuturo;
   int _abaSelecionada = 0;
+
+  // barra inferior: Início volta ao painel, Perfil abre o perfil (Relatórios ainda não existe)
+  void _aoSelecionarAbaInferior(int indice) {
+    if (indice == 0) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => TelaPainelMembro(
+              repositorio: RepositorioApiPainelMembro(),
+              emailMembro: widget.emailMembro,
+            ),
+          ),
+        );
+      }
+    }
+    if (indice == 3) {
+      abrirTelaPerfil(
+        context,
+        email: widget.emailMembro,
+        aoPerfilAtualizado: widget.aoPerfilAtualizado,
+        repositorio: widget.repositorioPerfil,
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -90,7 +129,9 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
                 ),
               ],
             ),
-            bottomNavigationBar: const _NavegacaoInferior(),
+            bottomNavigationBar: _NavegacaoInferior(
+              aoSelecionar: _aoSelecionarAbaInferior,
+            ),
           );
         },
       ),
@@ -661,7 +702,9 @@ class _CartaoSaldo extends StatelessWidget {
 }
 
 class _NavegacaoInferior extends StatelessWidget {
-  const _NavegacaoInferior();
+  const _NavegacaoInferior({required this.aoSelecionar});
+
+  final ValueChanged<int> aoSelecionar;
 
   @override
   Widget build(BuildContext context) {
@@ -675,20 +718,7 @@ class _NavegacaoInferior extends StatelessWidget {
     return NavigationBar(
       height: 64,
       selectedIndex: 1,
-      onDestinationSelected: (indice) {
-        if (indice == 0) {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          } else {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) =>
-                    TelaPainelMembro(repositorio: RepositorioApiPainelMembro()),
-              ),
-            );
-          }
-        }
-      },
+      onDestinationSelected: aoSelecionar,
       backgroundColor: Colors.white,
       indicatorColor: Colors.transparent,
       elevation: 6,

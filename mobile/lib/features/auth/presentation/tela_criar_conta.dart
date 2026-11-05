@@ -1,3 +1,5 @@
+//Autora: Ana Luísa Maso Mafra | RA: 25007997
+
 import 'package:flutter/material.dart';
 
 import '../data/servico_auth.dart';
@@ -22,6 +24,7 @@ class _EstadoTelaCriarConta extends State<TelaCriarConta> {
   final _nome = TextEditingController();
   final _email = TextEditingController();
   final _cpf = TextEditingController();
+  String _tipoConta = 'membro'; // 'membro' ou 'admin'
 
   @override
   void dispose() {
@@ -39,6 +42,7 @@ class _EstadoTelaCriarConta extends State<TelaCriarConta> {
           nome: _nome.text.trim(),
           email: _email.text.trim(),
           cpf: cpfSoDigitos(_cpf.text),
+          tipoConta: _tipoConta,
           servicoAuth: widget.servicoAuth,
           destinoAposCadastro: widget.destinoAposCadastro,
         ),
@@ -132,6 +136,8 @@ class _EstadoTelaCriarConta extends State<TelaCriarConta> {
             validador: validarCpf,
           ),
           const SizedBox(height: 16),
+          _seletorTipoConta(),
+          const SizedBox(height: 16),
           _cartaoInformativo(),
           const SizedBox(height: 16),
           BotaoPrincipalAuth(texto: 'Continuar', aoPressionar: _continuar),
@@ -142,6 +148,79 @@ class _EstadoTelaCriarConta extends State<TelaCriarConta> {
             aoPressionar: () => Navigator.of(context).maybePop(),
           ),
         ],
+        ),
+      ),
+    );
+  }
+
+  // "Quero me cadastrar como": membro ou administrador
+  Widget _seletorTipoConta() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Quero me cadastrar como',
+          style: TextStyle(
+            color: corPrimaria,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _opcaoTipoConta('membro', 'Membro', Icons.person_outline),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _opcaoTipoConta(
+                'admin',
+                'Administrador',
+                Icons.shield_outlined,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _opcaoTipoConta(String valor, String rotulo, IconData icone) {
+    final selecionado = _tipoConta == valor;
+    return Material(
+      color: selecionado ? corPrimaria : Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => setState(() => _tipoConta = valor),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selecionado ? corPrimaria : const Color(0xFFE3E6EB),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icone,
+                size: 18,
+                color: selecionado ? Colors.white : corPrimaria,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                rotulo,
+                style: TextStyle(
+                  color: selecionado ? Colors.white : corPrimaria,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
