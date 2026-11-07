@@ -5,6 +5,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mobile/features/geracao_creditos/domain/repositorio_energia.dart';
+import 'package:mobile/features/geracao_creditos/presentation/tela_energia.dart';
 import 'package:mobile/features/perfil/domain/formatadores_perfil.dart';
 import 'package:mobile/features/perfil/domain/repositorio_perfil.dart';
 import 'package:mobile/features/perfil/presentation/tela_editar_perfil.dart';
@@ -81,6 +83,26 @@ Widget _abrirPorCima(Widget tela) => MaterialApp(
     ),
   ),
 );
+
+class RepositorioEnergiaFalso implements RepositorioEnergia {
+  @override
+  Future<ResumoEnergia> buscarResumo({
+    int? ano,
+    String? usinaId,
+    String? membroId,
+  }) async => ResumoEnergia.exemplo();
+
+  @override
+  Future<List<CotaMembro>> buscarCotasDistribuicao({String? usinaId}) async =>
+      const [];
+
+  @override
+  Future<bool> salvarLancamentoMensal({
+    required String mesReferencia,
+    required double geracaoKwh,
+    String? usinaId,
+  }) async => true;
+}
 
 void main() {
   group('formatadores', () {
@@ -245,6 +267,33 @@ void main() {
       await tester.pumpAndSettle();
       expect(repositorio.senhaAtualEnviada, 'antiga123');
       expect(repositorio.novaSenhaEnviada, 'nova12345');
+
+      await tester.binding.setSurfaceSize(null);
+    });
+  });
+
+  group('Aba Perfil na tela Energia', () {
+    testWidgets('tocar em Perfil na barra inferior abre o perfil', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(430, 932));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TelaEnergia(
+            repositorio: RepositorioEnergiaFalso(),
+            emailMembro: 'joao@email.com',
+            repositorioPerfil: RepositorioPerfilFalso(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Perfil'));
+      await tester.pumpAndSettle();
+
+      // chegou na tela de Perfil, com os dados do membro
+      expect(find.text('João Oliveira'), findsOneWidget);
+      expect(find.text('Meu consórcio'), findsOneWidget);
 
       await tester.binding.setSurfaceSize(null);
     });

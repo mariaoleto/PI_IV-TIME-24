@@ -16,7 +16,7 @@ export type NovoMembro = {
   cpf: string; // somente dígitos
   telefone: string | null;
   senha_hash: string;
-  tipo_usuario: "membro";
+  tipo_usuario: "membro" | "admin";
   data_cadastro: Date;
 };
 
