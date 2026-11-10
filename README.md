@@ -107,13 +107,42 @@ npm install
 
 # Configure as variáveis de ambiente
 cp .env.example .env
-# Edite o arquivo .env com a string de conexão do MongoDB Atlas
+# Edite o arquivo .env: informe sua URI do MongoDB e substitua JWT_SECRET
+# por um segredo aleatório com pelo menos 16 caracteres
 
 # Execute em modo de desenvolvimento
 npm run dev
 ```
 
+O `JWT_SECRET` é obrigatório para assinar e validar tokens de autenticação.
+Não compartilhe nem faça commit do arquivo `.env`; ele já é ignorado pelo Git.
+Para gerar um segredo aleatório no Git Bash, use:
+
+```bash
+openssl rand -hex 32
+```
+
+Copie o resultado para o valor de `JWT_SECRET` no arquivo `.env`. Se preferir
+iniciar a versão compilada, execute `npm run build` antes de `npm start`.
+
 > O servidor estará disponível em `http://localhost:3000`.
+
+#### Relatórios em PDF (Node.js)
+
+As rotas abaixo exigem `Authorization: Bearer <token>` e guardam cada PDF e
+seus metadados na coleção MongoDB `relatorios`. O membro do relatório é sempre
+obtido do token autenticado.
+
+| Método e rota | Corpo JSON | Relatório |
+|---|---|---|
+| `POST /relatorios/mensal` | `{"referencia":"2026-09"}` | Relatório mensal de geração, créditos, consumo e saldo |
+| `POST /relatorios/extrato-creditos` | `{"referencia":"2026-09"}` | Extrato mensal de créditos e consumo |
+| `POST /relatorios/demonstrativo-anual` | `{"ano":"2026"}` | Demonstrativo agregado de janeiro a dezembro |
+| `GET /relatorios` | — | Lista os metadados dos PDFs do membro |
+| `GET /relatorios/:id/download` | — | Baixa novamente o PDF salvo |
+
+As rotas de geração respondem com `application/pdf`; períodos mensais usam
+`AAAA-MM`. A listagem inclui `arquivo_url`, que aponta para a rota de download.
 
 #### 2.2 Backend em Java (Spring Boot)
 

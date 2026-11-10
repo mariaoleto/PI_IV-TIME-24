@@ -74,6 +74,19 @@ function lerConsumoKwh(consumo: DocumentoFlexivel | undefined) {
   );
 }
 
+export function agruparConsumosPorMes(consumos: DocumentoFlexivel[]) {
+  const consumoPorMes = new Map<string, number>();
+  for (const consumo of consumos) {
+    const referencia = consumo.mes_referencia?.toString();
+    if (!referencia) continue;
+    consumoPorMes.set(
+      referencia,
+      (consumoPorMes.get(referencia) ?? 0) + lerConsumoKwh(consumo),
+    );
+  }
+  return consumoPorMes;
+}
+
 // monta e retorna o resumo dos dados da energia, conforme os parametros (ano, id usina e id membro)
 // usados nos objetos ResumoEnergia e MesEnergia
 export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
@@ -123,9 +136,7 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
   const creditoPorMes = new Map(
     creditos.map((item) => [item.mes_referencia?.toString(), item]),
   );
-  const consumoPorMes = new Map(
-    consumos.map((item) => [item.mes_referencia?.toString(), item]),
-  );
+  const consumoPorMes = agruparConsumosPorMes(consumos);
 
   // atribui e iniciliza os valores nas variaveis 
   const percentualCota = paraNumero(cota?.percentual);
@@ -139,7 +150,6 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
     const referencia = chaveMes(ano, indice);
     const geracao = geracaoPorMes.get(referencia);
     const credito = creditoPorMes.get(referencia);
-    const consumo = consumoPorMes.get(referencia);
     const geracaoKwh = paraNumero(geracao?.geracao_kwh);
 
     // calculo do credito do usuario 
@@ -151,7 +161,7 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
     );
 
     // le o consumo mensal e calcula o saldo do mes
-    const consumoKwh = lerConsumoKwh(consumo);
+    const consumoKwh = consumoPorMes.get(referencia) ?? 0;
     const saldoMesKwh = creditosLiquidosKwh - consumoKwh;
 
     // calculos da geracao, consumo e saldo totais

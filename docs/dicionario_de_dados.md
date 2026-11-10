@@ -154,10 +154,17 @@ Marina Hehnes Espósito - 25000937
 | membro_id | Identificador referencial | Sim | Simples | 000000000000000000000065 | "", nulo | Chave de relacionamento com o membro a quem o relatório pertence. |
 | tipo | Elemento enumerado | Sim | Simples | "relatorio_mensal", "extrato_creditos", "demonstrativo_anual" | "", "pdf", "planilha" | Classificação do modelo e periodicidade do relatório gerado. |
 | titulo | Texto alfanumérico | Sim | Simples | Relatório mensal, Extrato de créditos, Demonstrativo anual | "", "Rel" | Título legível de exibição na lista de documentos do aplicativo. |
-| referencia | Texto descritivo | Sim | Simples | Setembro 2026, Agosto 2026, 2025 — Completo | "", "2026" | Rótulo temporal humanizado do período de competência abrangido. |
+| referencia | Texto descritivo | Sim | Simples | Setembro de 2026, Agosto de 2026, 2025 - Completo | "", "2026" | Rótulo temporal humanizado do período de competência abrangido. |
 | tamanho_mb | Número decimal | Sim | Simples | 2.1, 1.4, 5.8 | -1, 0, "2MB" | Peso do arquivo PDF em Megabytes para exibição ao usuário antes do download. |
+| tamanho_bytes | Número inteiro | Sim | Simples | 24576 | -1, "24 KB" | Tamanho exato do PDF armazenado. |
 | data_geracao | Data e hora | Sim | Simples | 2026-09-01T08:00:00Z | "", datas inconsistentes | Timestamp da compilação e emissão do demonstrativo. |
-| arquivo_url | Endereço URL | Sim | Simples | https://storage.solis.app/relatorios/2026-09-mensal.pdf | "c:\relatorio.pdf", "" | URL direta e segura para visualização ou download do arquivo PDF. |
+| arquivo_url | Endereço URL | Sim | Simples | /relatorios/000000000000000000000384/download | "c:\relatorio.pdf", "" | Rota autenticada da API para baixar o PDF persistido na mesma coleção. |
+| arquivo_pdf | Binário (PDF) | Sim | Simples | BinData do PDF gerado | "", dados que não sejam PDF | Conteúdo PDF armazenado no documento MongoDB e excluído das respostas da listagem. |
+| total_geracao_kwh | Número decimal | Sim | Simples | 1250.5 | -1, "1250 kWh" | Geração agregada da usina no período abrangido. |
+| total_creditos_kwh | Número decimal | Sim | Simples | 312.6 | -1, "312 kWh" | Créditos líquidos atribuídos ao membro no período. |
+| total_consumo_kwh | Número decimal | Sim | Simples | 240.2 | -1, "240 kWh" | Consumo agregado do membro no período. |
+| saldo_kwh | Número decimal | Sim | Simples | 72.4 | "72 kWh" | Diferença entre os créditos líquidos e o consumo no período. |
+| economia_estimada_reais | Número decimal | Sim | Simples | 49.96 | -1, "R$ 50" | Saldo de energia multiplicado pela tarifa do membro. |
 
 ## 3. Tipos especiais, compostos ou específicos 
 

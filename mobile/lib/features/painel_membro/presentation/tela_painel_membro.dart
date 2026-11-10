@@ -14,6 +14,8 @@ import '../../geracao_creditos/domain/repositorio_energia.dart';
 import '../../geracao_creditos/presentation/tela_energia.dart';
 import '../../perfil/domain/repositorio_perfil.dart';
 import '../../perfil/presentation/tela_perfil.dart';
+import '../../relatorios/domain/repositorio_relatorios.dart';
+import '../../relatorios/presentation/tela_relatorios.dart';
 import '../domain/repositorio_painel_membro.dart';
 
 class TelaPainelMembro extends StatefulWidget {
@@ -72,6 +74,17 @@ class _EstadoTelaPainelMembro extends State<TelaPainelMembro> {
         MaterialPageRoute(
           builder: (_) => TelaEnergia(
             repositorio: RepositorioApiEnergia(),
+            emailMembro: _emailMembro,
+            aoPerfilAtualizado: _aoPerfilAtualizado,
+          ),
+        ),
+      );
+    }
+    if (indice == 2) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TelaRelatorios(
+            repositorio: RepositorioApiRelatorios(),
             emailMembro: _emailMembro,
             aoPerfilAtualizado: _aoPerfilAtualizado,
           ),

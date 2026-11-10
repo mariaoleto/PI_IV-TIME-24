@@ -12,6 +12,8 @@ import '../../painel_membro/domain/repositorio_painel_membro.dart';
 import '../../painel_membro/presentation/tela_painel_membro.dart';
 import '../../perfil/domain/repositorio_perfil.dart';
 import '../../perfil/presentation/tela_perfil.dart';
+import '../../relatorios/domain/repositorio_relatorios.dart';
+import '../../relatorios/presentation/tela_relatorios.dart';
 import '../domain/repositorio_energia.dart';
 
 class TelaEnergia extends StatefulWidget {
@@ -53,6 +55,18 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
           ),
         );
       }
+    }
+    if (indice == 2) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TelaRelatorios(
+            repositorio: RepositorioApiRelatorios(),
+            emailMembro: widget.emailMembro,
+            aoPerfilAtualizado: widget.aoPerfilAtualizado,
+            repositorioPerfil: widget.repositorioPerfil,
+          ),
+        ),
+      );
     }
     if (indice == 3) {
       abrirTelaPerfil(

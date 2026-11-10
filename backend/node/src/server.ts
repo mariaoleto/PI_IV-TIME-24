@@ -13,6 +13,7 @@ import roteadorPainelAdmin from "./modules/painel_admin/painel_routes";
 import roteadorPainelMembro from "./modules/painel_membro/painel_membro_routes";
 import roteadorPerfil from "./modules/perfil/perfil_routes";
 import roteadorAuth from "./modules/auth/auth_routes";
+import roteadorRelatorios from "./modules/relatorios/relatorios_routes";
 
 // garante resolução de DNS segura para MongoDB Atlas em ambientes locais/Windows
 try {
@@ -37,6 +38,7 @@ app.use("/admin", roteadorPainelAdmin);
 app.use("/painel-membro", roteadorPainelMembro); // o app já chama /painel-membro, mas a rota não estava montada
 app.use("/auth", roteadorAuth); // cadastro, login (JWT) e recuperação de senha
 app.use("/perfil", roteadorPerfil); // protegido por token (veja perfil_routes.ts)
+app.use("/relatorios", roteadorRelatorios);
 
 // trata erros da rota
 app.use(
