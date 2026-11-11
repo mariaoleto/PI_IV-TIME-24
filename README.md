@@ -1,31 +1,65 @@
 # ☀️ Solis
 
-> Aplicativo mobile de gestão de energia solar compartilhada para comunidades de geração distribuída.
+> Aplicativo mobile e ecossistema backend para gestão de energia solar compartilhada em comunidades de geração distribuída.
 
 ---
 
 ## 📋 Descrição do Projeto
 
-O **Solis** é um aplicativo mobile desenvolvido como projeto acadêmico na disciplina **Projeto Integrador 4** do curso de Engenharia de Software da PUC-Campinas (2026).
+O **Solis** é um aplicativo mobile desenvolvido como projeto acadêmico na disciplina **Projeto Integrador IV** do curso de Engenharia de Software da **PUC-Campinas (2026)**.
 
-A proposta simula uma plataforma de gestão de energia solar compartilhada entre membros de um consórcio de geração distribuída, como vizinhos, condomínios ou pequenas comunidades rurais que dividem os créditos de uma mesma usina solar. O aplicativo calcula, com base na cota de participação de cada membro, os créditos de energia gerados, o consumo individual e a economia estimada, centralizando essas informações em um painel simples e acessível.
+A plataforma simula a gestão de energia solar compartilhada entre membros de um consórcio de geração distribuída (vizinhos, condomínios ou comunidades) que dividem os créditos de uma mesma usina solar. A partir da cota de participação de cada membro, o sistema calcula os créditos líquidos de energia, apura o consumo individual, estima a economia financeira, monitora a telemetria simulada da usina via **Socket TCP em Java** e gera **relatórios em PDF** para prestação de contas.
 
-> ⚠️ Todos os dados de geração e consumo utilizados no sistema são fictícios/simulados. O sistema não realiza integração real com equipamentos, distribuidoras de energia ou sistemas financeiros externos.
+> ⚠️ Todos os dados de geração, telemetria e consumo utilizados no sistema são fictícios/simulados. O sistema não realiza integração real com inversores físicos, distribuidoras de energia ou sistemas financeiros externos.
 
 ---
 
-### Funcionalidades principais
+## 🏗️ Arquitetura do Sistema
 
-- **Cadastro e Consórcio** — Cadastro de membros, definição da cota de participação de cada um na usina e cadastro da usina compartilhada.
-- **Geração e Créditos** — Registro da geração mensal de energia da usina e cálculo automático dos créditos de cada membro com base na sua cota.
-- **Consumo e Economia** — Registro do consumo mensal de cada membro, cálculo do saldo de créditos e estimativa da economia gerada.
-- **Painel do Membro** — Dashboard individual com créditos do mês, saldo acumulado, consumo e histórico simplificado.
-- **Painel do Administrador** — Visão geral de todos os membros, cotas e geração total da usina, com opção de lançar/editar dados.
-- **Notificações e Avisos** — Alertas de novo relatório disponível e de consumo acima dos créditos do mês.
-- **Rateio de Custos** — Cadastro de custos fixos da usina (manutenção, seguro, taxa de administração) e rateio proporcional entre os membros.
-- **Relatórios Exportáveis** — Geração de relatório mensal por membro para prestação de contas da cooperativa.
-- **Simulador de Novo Membro** — Simulação de economia estimada para um novo interessado, com base no percentual de cota e consumo médio informado.
-- **Indicador de Sustentabilidade** — Cálculo do CO2 evitado com base na energia gerada.
+O projeto é dividido em três camadas que se comunicam localmente ou em rede:
+
+```text
+┌─────────────────────────┐      HTTP / REST + JWT      ┌───────────────────────────────────┐
+│   App Mobile (Flutter)  │ ──────────────────────────► │   Backend API (Node.js / Express) │
+│    (Android/iOS/Web)    │                             │            Porta 3000             │
+└─────────────────────────┘                             └───────────┬──────────────┬────────┘
+                                                                    │              │
+                                              Socket TCP (5050)     │              │ Mongoose
+                                                                    ▼              ▼
+                                                        ┌──────────────────┐  ┌──────────┐
+                                                        │ Servidor TCP Java│  │ MongoDB  │
+                                                        │ br.com.solis.tcp │  │          │
+                                                        └──────────────────┘  └──────────┘
+```
+
+1. **Mobile (`mobile/`)** — Aplicativo Flutter/Dart para membros e administradores.
+2. **Backend API (`backend/node/`)** — API REST em Node.js, TypeScript e Express integrada ao MongoDB (Mongoose), autenticação JWT, envio de e-mails de recuperação (`nodemailer`) e geração de PDFs (`pdfkit`).
+3. **Servidor Socket TCP (`backend/java/`)** — Serviço em Java (`br.com.solis.tcp.Servidor` na porta `5050`) responsável pelo cálculo proporcional de cotas (`CALCULAR_COTAS`) e consulta de telemetria simulada da usina (`STATUS_USINA`). Caso o servidor TCP Java esteja offline, o backend Node aplica cálculo de fallback local automaticamente.
+
+---
+
+## ✨ Funcionalidades Implementadas
+
+- **Autenticação e Segurança (`auth`)**
+  - Login separado por perfil (**Membro** e **Administrador**) com emissão de token JWT e controle de tentativas (bloqueio temporário por excesso de falhas).
+  - Cadastro em 2 etapas no app com validação algorítmica de CPF, normalização de telefone, escolha do tipo de conta (`membro` ou `admin`) e criação/promoção de administrador via CLI (`npm run criar-admin`).
+  - Recuperação e redefinição de senha via código temporário de 6 dígitos validado por HMAC e envio opcional por SMTP (`nodemailer`).
+- **Perfil e Contrato (`perfil`)**
+  - Visualização e edição de dados pessoais (nome, e-mail, telefone), troca segura de senha e consulta ao contrato/cota vinculada ao membro.
+- **Painel do Membro (`painel_membro`)**
+  - Dashboard individual com resumo do mês, créditos, consumo, saldo acumulado e navegação integrada entre Início, Energia, Relatórios e Perfil.
+- **Painel do Administrador (`painel_admin`)**
+  - Visão consolidada da usina ativa, alertas operacionais (cotas, queda de geração, consumo acima dos créditos), controle de pendências de lançamento mensal e acesso ao lançamento de geração.
+- **Geração, Créditos e Telemetria TCP (`geracao_creditos`)**
+  - Resumo anual e mensal de geração, consumo, saldo de créditos, economia estimada em reais e indicador de sustentabilidade (CO₂ evitado).
+  - Lançamento mensal da geração da usina pelo administrador com distribuição automática dos créditos por cota usando o servidor TCP Java (`CALCULAR_COTAS`), com fallback seguro no Node.js se a porta `5050` não estiver ativa.
+  - Consulta de telemetria da usina (`STATUS_USINA`) via `GET /energia/telemetria-tcp`.
+- **Relatórios em PDF (`relatorios`)**
+  - Geração pelo app e pela API de **Relatório Mensal**, **Extrato de Créditos** e **Demonstrativo Anual** em PDF (`pdfkit`), armazenados na coleção `relatorios` do MongoDB.
+  - Integração direta com o Servidor TCP Java: ao gerar um relatório, o backend consulta `STATUS_USINA` e recalcula os créditos mensais via `CALCULAR_COTAS`, gravando `origem_dados_tcp` e `telemetria_tcp` no banco, no cabeçalho do PDF e nos cartões do aplicativo.
+  - Download externo seguro sem expor JWT na URL pública por meio de **tickets HMAC-SHA256 de uso temporário** (120 segundos) obtidos em `GET /relatorios/:id/ticket`.
+- **Gestão de Usinas (`mobile/lib/features/gestao/`)**
+  - Telas e repositório no aplicativo Flutter para cadastro de usinas, componentes, cotas e contratos *(fluxo visual/cliente pronto no mobile; as rotas `/gestao/*` ainda não foram montadas no `server.ts` do Node.js)*.
 
 ---
 
@@ -42,28 +76,13 @@ A proposta simula uma plataforma de gestão de energia solar compartilhada entre
 
 ## 🛠️ Tecnologias Utilizadas
 
-### Backend
-| Tecnologia | Descrição |
+| Camada | Tecnologias |
 |---|---|
-| Node.js (LTS) | Runtime JavaScript para o servidor |
-| TypeScript / JavaScript | Linguagens de desenvolvimento |
-| Java / Spring Boot | Transição do node para java |
-
-### Frontend (Mobile)
-| Tecnologia | Descrição |
-|---|---|
-| Flutter | Framework de desenvolvimento mobile |
-| Dart | Linguagem de programação |
-
-### Banco de Dados
-| Tecnologia | Descrição |
-|---|---|
-| MongoDB | Banco de dados não relacional |
-
-### Servidor Java
-| Tecnologia | Descrição |
-|---|---|
-| Java | Linguagem para serviços adicionais do backend |
+| **Mobile** | Flutter, Dart (`^3.11.4`), `http`, `url_launcher` |
+| **Backend API** | Node.js, TypeScript, Express 5, Mongoose 9, `jsonwebtoken`, `pdfkit`, `nodemailer`, `dotenv`, `cors` |
+| **Servidor TCP** | Java 21+, Sockets TCP (`java.net.ServerSocket` / `Socket`) |
+| **Banco de Dados** | MongoDB (local ou MongoDB Atlas) |
+| **Testes** | Node Test Runner (`node --import tsx --test`) e `flutter test` (`MockClient`, `WidgetTester`) |
 
 ---
 
@@ -71,116 +90,161 @@ A proposta simula uma plataforma de gestão de energia solar compartilhada entre
 
 ### Pré-requisitos
 
-Certifique-se de ter instalado em sua máquina:
-
 - [Node.js LTS](https://nodejs.org/)
-- [Flutter SDK](https://docs.flutter.dev/get-started/install)
-- [Dart SDK](https://dart.dev/get-dart) (incluído no Flutter)
-- [MongoDB](https://www.mongodb.com/try/download/community) (instância local ou cluster no MongoDB Atlas)
-- [JDK (Java Development Kit)](https://www.oracle.com/java/technologies/downloads/)
-- [Git](https://git-scm.com/)
-- Um emulador Android/iOS ou dispositivo físico conectado
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) e Dart SDK
+- [JDK 21+](https://www.oracle.com/java/technologies/downloads/)
+- [MongoDB](https://www.mongodb.com/try/download/community) local ou cluster no MongoDB Atlas
+- Emulador Android/iOS, navegador web, desktop ou dispositivo físico conectado
 
 ---
 
 ### 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/[seu-usuario]/[nome-repositorio].git
-cd [nome-repositorio]
+git clone https://github.com/mariaoleto/ES-PI4-2026-T1-G26.git
+cd ES-PI4-2026-T1-G26
 ```
 
 ---
 
-### 2. Configurar e executar o Backend
+### 2. Iniciar o Servidor Socket TCP Java (porta `5050`)
 
-O projeto possui duas implementações do backend dentro da pasta `backend/`:
+O servidor TCP deve estar rodando antes de consultar telemetria em tempo real ou gerar cálculos distribuídos diretamente no Java (se estiver offline, o backend Node utiliza fallback local automaticamente, exceto no endpoint de telemetria).
 
-#### 2.1 Backend em Node.js (TypeScript)
-
-```bash
-# Acesse a pasta do backend Node
-cd backend/node
-
-# Instale as dependências
-npm install
-
-# Configure as variáveis de ambiente
-cp .env.example .env
-# Edite o arquivo .env: informe sua URI do MongoDB e substitua JWT_SECRET
-# por um segredo aleatório com pelo menos 16 caracteres
-
-# Execute em modo de desenvolvimento
-npm run dev
-```
-
-O `JWT_SECRET` é obrigatório para assinar e validar tokens de autenticação.
-Não compartilhe nem faça commit do arquivo `.env`; ele já é ignorado pelo Git.
-Para gerar um segredo aleatório no Git Bash, use:
-
-```bash
-openssl rand -hex 32
-```
-
-Copie o resultado para o valor de `JWT_SECRET` no arquivo `.env`. Se preferir
-iniciar a versão compilada, execute `npm run build` antes de `npm start`.
-
-> O servidor estará disponível em `http://localhost:3000`.
-
-#### Relatórios em PDF (Node.js)
-
-As rotas abaixo exigem `Authorization: Bearer <token>` e guardam cada PDF e
-seus metadados na coleção MongoDB `relatorios`. O membro do relatório é sempre
-obtido do token autenticado.
-
-| Método e rota | Corpo JSON | Relatório |
-|---|---|---|
-| `POST /relatorios/mensal` | `{"referencia":"2026-09"}` | Relatório mensal de geração, créditos, consumo e saldo |
-| `POST /relatorios/extrato-creditos` | `{"referencia":"2026-09"}` | Extrato mensal de créditos e consumo |
-| `POST /relatorios/demonstrativo-anual` | `{"ano":"2026"}` | Demonstrativo agregado de janeiro a dezembro |
-| `GET /relatorios` | — | Lista os metadados dos PDFs do membro |
-| `GET /relatorios/:id/download` | — | Baixa novamente o PDF salvo |
-
-As rotas de geração respondem com `application/pdf`; períodos mensais usam
-`AAAA-MM`. A listagem inclui `arquivo_url`, que aponta para a rota de download.
-
-#### 2.2 Backend em Java (Spring Boot)
+**No PowerShell (Windows):**
 
 ```powershell
-# Acesse a pasta do backend Java
-cd backend/java
-
-# Configure a variável de ambiente do MongoDB (opcional, padrão: mongodb://localhost:27017/solis)
-$env:MONGODB_URI = "sua_string_de_conexao_mongodb"
-
-# Execute a aplicação Spring Boot
-.\mvnw.cmd spring-boot:run
+# Na raiz do repositório
+New-Item -ItemType Directory -Force -Path backend/java/bin | Out-Null
+$arquivosJava = Get-ChildItem -Path backend/java/src/main/java -Filter *.java -Recurse | ForEach-Object { $_.FullName }
+javac -encoding UTF-8 -d backend/java/bin $arquivosJava
+java -cp backend/java/bin br.com.solis.tcp.Servidor
 ```
 
-> O servidor Java também sobe na porta `3000` (`http://localhost:3000`), garantindo paridade total com o app mobile.
-
----
-
-### 3. Configurar o Banco de Dados MongoDB
-
-Certifique-se de que o MongoDB esteja em execução localmente, ou informe a URI de um cluster remoto (por exemplo, MongoDB Atlas) na variável de ambiente `MONGODB_URI`.
-
----
-
-### 4. Configurar e executar o Aplicativo Mobile
+**No Bash / Linux / macOS:**
 
 ```bash
-# Acesse a pasta do mobile
+mkdir -p backend/java/bin
+javac -encoding UTF-8 -d backend/java/bin $(find backend/java/src/main/java -name "*.java")
+java -cp backend/java/bin br.com.solis.tcp.Servidor
+```
+
+> Para encerrar o servidor Java de forma limpa, digite `desativar` no terminal em que ele estiver rodando. Também é possível passar outra porta como argumento (`java -cp backend/java/bin br.com.solis.tcp.Servidor 5050`).
+
+#### Comandos suportados no protocolo TCP (`127.0.0.1:5050`)
+
+| Comando | Resposta esperada | Finalidade |
+|---|---|---|
+| `PING` | `PONG` | Verificação de disponibilidade |
+| `HELP` | `Comandos: PING, STATUS_USINA, CALCULAR_COTAS, SAIR` | Lista os comandos do protocolo |
+| `STATUS_USINA` | `OK USINA=Solis_1 STATUS=OPERANDO GERACAO_ATUAL=14.2kW TENSAO=220V FREQ=60Hz` | Telemetria instantânea da usina |
+| `CALCULAR_COTAS total=1240;cotas=25,30,45` | `OK 25.0%=310.0kWh;30.0%=372.0kWh;45.0%=558.0kWh` | Cálculo proporcional dos créditos em kWh |
+| `SAIR` | `BYE` | Encerra a sessão TCP do cliente |
+
+---
+
+### 3. Configurar e executar o Backend Node.js (porta `3000`)
+
+```bash
+cd backend/node
+npm install
+cp .env.example .env
+```
+
+Edite `backend/node/.env` configurando as variáveis necessárias:
+
+| Variável | Obrigatória | Padrão / Observação |
+|---|---|---|
+| `MONGODB_URI` | Sim | URI do MongoDB local ou Atlas (ex.: `mongodb://127.0.0.1:27017/solis`) |
+| `JWT_SECRET` | Sim | Segredo aleatório com **pelo menos 16 caracteres** (`openssl rand -hex 32`) |
+| `PORT` | Não | `3000` |
+| `NODE_ENV` | Não | `desenvolvimento` (em `production`, o envio de e-mail exige SMTP configurado) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Não (dev) / Sim (`production`) | Configuração SMTP para envio real do código de recuperação de senha; sem `SMTP_HOST` em desenvolvimento, o código é exibido no console do servidor |
+
+Executar em desenvolvimento ou produção:
+
+```bash
+# Modo desenvolvimento (hot reload)
+npm run dev
+
+# Ou compilar e rodar build de produção
+npm run build
+npm start
+```
+
+Criar ou promover um administrador pelo terminal:
+
+```bash
+npm run criar-admin -- "Nome Sobrenome" admin@solis.com.br SenhaForte123
+```
+
+> A API sobe por padrão em `http://localhost:3000` (`GET /` retorna `{"status": "Solis API rodando"}`).
+
+---
+
+### 4. Configurar e executar o Aplicativo Mobile (Flutter)
+
+```bash
 cd mobile
-
-# Instale as dependências do Flutter
 flutter pub get
-
-# Verifique se há um emulador rodando ou dispositivo conectado
 flutter devices
-
-# Execute o aplicativo
 flutter run
+```
+
+#### Apontamento automático da URL da API
+
+- **Emulador Android:** usa automaticamente `http://10.0.2.2:3000`
+- **Web, Desktop (Windows/Linux/macOS) e Simulador iOS:** usa automaticamente `http://localhost:3000`
+- **Dispositivo físico ou host customizado:** passe `--dart-define=SOLIS_URL_API=http://SEU_IP:3000` ao executar:
+
+```bash
+flutter run --dart-define=SOLIS_URL_API=http://192.168.0.10:3000
+```
+
+---
+
+## 🔌 Principais Rotas da API REST (Node.js)
+
+| Módulo | Método e Rota | Autenticação | Descrição |
+|---|---|---|---|
+| **Status** | `GET /` | Pública | Healthcheck da API |
+| **Auth** | `POST /auth/cadastro` | Pública | Cria conta de `membro` ou `admin` (com CPF válido) e devolve JWT |
+| **Auth** | `POST /auth/login` | Pública | Autentica membro ou administrador (`perfil`) e devolve JWT |
+| **Auth** | `POST /auth/recuperar-senha` | Pública | Gera código temporário de 6 dígitos e envia por e-mail/console |
+| **Auth** | `POST /auth/redefinir-senha` | Pública | Valida código e atualiza a senha |
+| **Perfil** | `GET /perfil` | Bearer JWT | Retorna dados do usuário autenticado (admin pode consultar por `?membro_id=` ou `?email=`) |
+| **Perfil** | `PUT /perfil/:id` | Bearer JWT | Atualiza nome, e-mail e telefone |
+| **Perfil** | `PUT /perfil/:id/senha` | Bearer JWT | Altera a senha conferindo a senha atual |
+| **Perfil** | `GET /perfil/:id/contrato` | Bearer JWT | Retorna o contrato e dados de cota do membro |
+| **Painel Membro** | `GET /painel-membro` e `/painel-membro/dashboard` | Aberta (query `?membro_id=` ou `?email=`) | Retorna resumo consolidado para a tela inicial do membro |
+| **Painel Admin** | `GET /admin/painel` | Aberta (query `?usina_id=`) | Retorna situação da usina, cotas, alertas e lançamentos pendentes |
+| **Energia** | `GET /energia` | Aberta (query `?ano=&usina_id=&membro_id=`) | Retorna resumo mensal/anual de geração, consumo, créditos e economia |
+| **Energia** | `GET /energia/cotas` | Aberta (query `?usina_id=&membro_id=`) | Lista as cotas e tarifas dos membros |
+| **Energia** | `POST /energia/lancamento` | Aberta | Salva geração do mês e distribui créditos via TCP Java (ou fallback) |
+| **Energia** | `GET /energia/telemetria-tcp` | Aberta | Consulta `STATUS_USINA` na porta `5050` (`200` online / `503` offline) |
+| **Relatórios** | `POST /relatorios/mensal` | Bearer JWT | Gera PDF mensal (`{"referencia":"AAAA-MM"}`) com dados e telemetria TCP (retorna PDF + `X-Relatorio-Id`) |
+| **Relatórios** | `POST /relatorios/extrato-creditos` | Bearer JWT | Gera PDF do extrato mensal (`{"referencia":"AAAA-MM"}`) |
+| **Relatórios** | `POST /relatorios/demonstrativo-anual` | Bearer JWT | Gera PDF agregado anual (`{"ano":"AAAA"}`) |
+| **Relatórios** | `GET /relatorios` | Bearer JWT | Lista metadados dos relatórios do membro (inclui `origem_dados_tcp` e `telemetria_tcp`) |
+| **Relatórios** | `GET /relatorios/:id/ticket` | Bearer JWT | Emite ticket HMAC-SHA256 válido por 120 s para abertura externa do PDF |
+| **Relatórios** | `GET /relatorios/:id/download` | Bearer JWT ou `?ticket=` | Retorna o binário `application/pdf` salvo no MongoDB |
+
+---
+
+## 🧪 Testes e Verificações Automatizadas
+
+**Backend Node.js (`backend/node/`):**
+
+```bash
+npm test       # Executa auth, painel_admin, perfil e relatorios
+npm run build  # Valida compilação TypeScript (tsc)
+```
+
+**Aplicativo Mobile (`mobile/`):**
+
+```bash
+flutter analyze
+flutter test   # Executa auth, painel_admin, painel_membro, perfil, relatorios, usina_page e widget_test
 ```
 
 ---
@@ -190,33 +254,49 @@ flutter run
 ```text
 projeto-solis/
 ├── backend/
-│   ├── java/              # Servidor Spring Boot (Java 21, Maven)
-│   │   ├── src/
-│   │   │   ├── main/java/PIV/solis/
-│   │   │   │   ├── Controllers/
-│   │   │   │   ├── Models/
-│   │   │   │   ├── Repositories/
-│   │   │   │   └── Services/
-│   │   │   └── main/resources/application.properties
-│   │   ├── pom.xml
-│   │   └── mvnw.cmd
-│   └── node/              # Servidor Node.js (TypeScript, Express)
+│   ├── java/                        # Servidor Socket TCP (porta 5050)
+│   │   ├── src/main/java/br/com/solis/tcp/
+│   │   │   ├── protocol/            # PedidoStatusUsina, PedidoCalcularCotas, Resultado, etc.
+│   │   │   ├── service/             # TcpService.java (cálculo de cotas)
+│   │   │   ├── AceitadoraDeConexao.java
+│   │   │   ├── Parceiro.java
+│   │   │   ├── Servidor.java
+│   │   │   └── SupervisoraDeConexao.java
+│   │   └── pom.xml
+│   └── node/                        # API REST (TypeScript, Express 5, Mongoose 9)
 │       ├── src/
-│       │   ├── modules/geracao_creditos/
+│       │   ├── config/env.ts
+│       │   ├── modules/
+│       │   │   ├── auth/
+│       │   │   ├── geracao_creditos/
+│       │   │   ├── painel_admin/
+│       │   │   ├── painel_membro/
+│       │   │   ├── perfil/
+│       │   │   └── relatorios/
+│       │   ├── scripts/criar_admin.ts
+│       │   ├── utils/cliente_tcp_java.ts
 │       │   └── server.ts
-│       ├── package.json
-│       └── tsconfig.json
-├── mobile/                # Aplicativo mobile (Flutter / Dart)
+│       ├── tests/
+│       ├── .env.example
+│       └── package.json
+├── mobile/                          # Aplicativo Flutter / Dart
 │   ├── lib/
-│   │   ├── features/auth/
-│   │   └── src/geracao_consumos/
+│   │   ├── features/
+│   │   │   ├── auth/
+│   │   │   ├── geracao_creditos/
+│   │   │   ├── gestao/
+│   │   │   ├── painel_admin/
+│   │   │   ├── painel_membro/
+│   │   │   ├── perfil/
+│   │   │   └── relatorios/
+│   │   └── main.dart
+│   ├── test/
 │   └── pubspec.yaml
-├── banco/                 # Scripts e esquemas do MongoDB
-├── docs/                  # Documentação do projeto
+├── docs/                            # Dicionário de dados e documentação
+│   ├── dicionario_de_dados.md
+│   └── documentacao.pdf
 └── README.md
 ```
-
-
 
 ---
 
@@ -229,7 +309,7 @@ projeto-solis/
 | Disciplina | Projeto Integrador IV |
 | Ano | 2026 |
 | Professor Orientador | Renata Arantes |
-| Repositório | PI_IV-TIME-24|
+| Repositório | PI_IV-TIME-24 |
 
 ---
 
