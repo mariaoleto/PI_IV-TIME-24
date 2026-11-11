@@ -20,6 +20,17 @@ const relatorioSchema = new Schema(
     total_consumo_kwh: { type: Number, required: true },
     saldo_kwh: { type: Number, required: true },
     economia_estimada_reais: { type: Number, required: true },
+    origem_dados_tcp: { type: String, required: false, default: "" },
+    telemetria_tcp: {
+      status_servidor: String,
+      usina: String,
+      status_operacao: String,
+      geracao_atual: String,
+      tensao: String,
+      frequencia: String,
+      bruta: String,
+      consultado_em: Date,
+    },
   },
   { versionKey: false },
 );

@@ -35,11 +35,73 @@ const rotulosMeses = [
 ];
 
 // parametros usados nas buscas 
+export type EnviarComandoTcpFn = (comando: string, tempoLimiteMs?: number) => Promise<string>;
+
+export type TelemetriaUsinaTcp = {
+  status_servidor_tcp: "online" | "offline";
+  servidor: string;
+  telemetria: string;
+  usina?: string;
+  status_operacao?: string;
+  geracao_atual?: string;
+  tensao?: string;
+  frequencia?: string;
+  consultado_em?: string;
+  mensagem_erro?: string;
+};
+
 type ParametrosResumoEnergia = {
   ano?: string;
   usinaId?: string;
   membroId?: string;
+  enviarTcp?: EnviarComandoTcpFn;
 };
+
+export function interpretarTelemetriaUsina(respostaJava: string): TelemetriaUsinaTcp {
+  const texto = respostaJava.trim();
+  const lerCampo = (chave: string) => {
+    const match = new RegExp(`(?:^|\\s)${chave}=([^\\s]+)`).exec(texto);
+    return match?.[1];
+  };
+
+  if (!texto.startsWith("OK")) {
+    return {
+      status_servidor_tcp: "offline",
+      servidor: "Java Socket TCP (porta 5050)",
+      telemetria: texto,
+      mensagem_erro: texto || "Resposta inválida do servidor TCP Java",
+    };
+  }
+
+  return {
+    status_servidor_tcp: "online",
+    servidor: "Java Socket TCP (porta 5050)",
+    telemetria: texto,
+    usina: lerCampo("USINA"),
+    status_operacao: lerCampo("STATUS"),
+    geracao_atual: lerCampo("GERACAO_ATUAL"),
+    tensao: lerCampo("TENSAO"),
+    frequencia: lerCampo("FREQ"),
+    consultado_em: new Date().toISOString(),
+  };
+}
+
+export async function consultarTelemetriaUsinaTcp(
+  enviarTcp: EnviarComandoTcpFn = enviarComandoTcp,
+): Promise<TelemetriaUsinaTcp> {
+  try {
+    const respostaJava = await enviarTcp("STATUS_USINA");
+    return interpretarTelemetriaUsina(respostaJava);
+  } catch (erro) {
+    const mensagemErro = erro instanceof Error ? erro.message : "Erro desconhecido";
+    return {
+      status_servidor_tcp: "offline",
+      servidor: "Java Socket TCP (porta 5050)",
+      telemetria: "",
+      mensagem_erro: mensagemErro,
+    };
+  }
+}
 
 // converte um valor em um numero
 // caso nao seja possivel, retorna o numero padrao 0
@@ -146,15 +208,38 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
   let saldoAcumuladoKwh = 0;
 
   // cria e retorna o map do resumo dos dados mensais da energia 
-  const meses = rotulosMeses.map((rotulo, indice) => {
+  let tcpDisponivel = true;
+  const meses = [];
+  for (let indice = 0; indice < rotulosMeses.length; indice++) {
+    const rotulo = rotulosMeses[indice];
     const referencia = chaveMes(ano, indice);
     const geracao = geracaoPorMes.get(referencia);
     const credito = creditoPorMes.get(referencia);
     const geracaoKwh = paraNumero(geracao?.geracao_kwh);
 
-    // calculo do credito do usuario 
-    const creditoCalculado =
+    let creditoCalculado =
       percentualCota > 0 ? geracaoKwh * (percentualCota / 100) : 0;
+
+    // Se ainda não há crédito salvo no banco para este mês, consulta o cálculo via servidor TCP Java
+    if (
+      credito?.creditos_liquidos_kwh == null &&
+      credito?.creditos_brutos_kwh == null &&
+      geracaoKwh > 0 &&
+      percentualCota > 0 &&
+      tcpDisponivel
+    ) {
+      const resultadoTcp = await calcularCotasViaJavaTcp(
+        geracaoKwh,
+        [percentualCota],
+        parametros.enviarTcp,
+      );
+      if (resultadoTcp && resultadoTcp[percentualCota] !== undefined) {
+        creditoCalculado = resultadoTcp[percentualCota];
+      } else {
+        tcpDisponivel = false;
+      }
+    }
+
     const creditosLiquidosKwh = paraNumero(
       credito?.creditos_liquidos_kwh,
       paraNumero(credito?.creditos_brutos_kwh, creditoCalculado),
@@ -170,7 +255,7 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
     saldoAcumuladoKwh += saldoMesKwh;
 
     // retorna os dados do mes 
-    return {
+    meses.push({
       mes: rotulo,
       mes_referencia: referencia,
       geracao_kwh: geracaoKwh,
@@ -178,8 +263,8 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
       creditos_liquidos_kwh: Number(creditosLiquidosKwh.toFixed(1)),
       consumo_kwh: consumoKwh,
       saldo_mes_kwh: Number(saldoMesKwh.toFixed(1)),
-    };
-  });
+    });
+  }
 
   // retorna os dados totais
   return {
@@ -217,8 +302,14 @@ export async function listarCotasDistribuicao(parametros: {
 }
 
 // envia o calculo das cotas para o servidor Java via Socket TCP 
-async function calcularCotasViaJavaTcp(geracaoKwh: number,
-  cotasPercentuais: number[],): Promise<{ [percentual: number]: number } | null> {
+export async function calcularCotasViaJavaTcp(
+  geracaoKwh: number,
+  cotasPercentuais: number[],
+  enviarTcp: EnviarComandoTcpFn = enviarComandoTcp,
+): Promise<{ [percentual: number]: number } | null> {
+  if (geracaoKwh <= 0 || cotasPercentuais.length === 0) {
+    return null;
+  }
   try {
     // junta as cotas com virgula ex: 20,35,15
     const cotasFormatadas = cotasPercentuais.join(",");
@@ -226,7 +317,7 @@ async function calcularCotasViaJavaTcp(geracaoKwh: number,
     const comando = `CALCULAR_COTAS total=${geracaoKwh};cotas=${cotasFormatadas}`;
 
     // envia o comando e guarda a resposta na const 
-    const respostaJava = await enviarComandoTcp(comando);
+    const respostaJava = await enviarTcp(comando);
 
     // se o java retornar com sucesso (comecando com OK)
     if (respostaJava.startsWith("OK")) {
@@ -288,7 +379,7 @@ export async function registrarLancamentoMensal(dados: {
 
   // manda o calculo para ser feito pelo servidor java via socket tcp
   const resultadoJavaTcp = await calcularCotasViaJavaTcp(dados.geracaoKwh, percentuais);
-  const motorUtilizado = resultadoJavaTcp ? "Java Socket TCP (Porta 5050" : "Fallback Local Node.js";
+  const motorUtilizado = resultadoJavaTcp ? "Java Socket TCP (porta 5050)" : "Fallback Local Node.js";
 
   // faz a distribuicao dos creditos entre os membros 
   const distribuicao = await Promise.all(

@@ -8,6 +8,17 @@ export type LinhaRelatorio = {
   saldo_mes_kwh: number;
 };
 
+export type TelemetriaPdf = {
+  status_servidor: "online" | "offline";
+  usina?: string;
+  status_operacao?: string;
+  geracao_atual?: string;
+  tensao?: string;
+  frequencia?: string;
+  bruta?: string;
+  mensagem_erro?: string;
+};
+
 export type DadosRelatorioPdf = {
   titulo: string;
   referencia: string;
@@ -19,6 +30,8 @@ export type DadosRelatorioPdf = {
   total_consumo_kwh: number;
   saldo_kwh: number;
   economia_estimada_reais: number;
+  origem_dados_tcp?: string;
+  telemetria_tcp?: TelemetriaPdf;
   meses: LinhaRelatorio[];
 };
 
@@ -52,7 +65,31 @@ export function gerarPdfRelatorio(dados: DadosRelatorioPdf): Promise<Buffer> {
     documento.text(`Consumo: ${numero(dados.total_consumo_kwh)} kWh`);
     documento.text(`Saldo de energia: ${numero(dados.saldo_kwh)} kWh`);
     documento.text(`Economia estimada: R$ ${numero(dados.economia_estimada_reais, 2)}`);
+    if (dados.origem_dados_tcp) {
+      documento.text(`Origem do cálculo de créditos: ${dados.origem_dados_tcp}`);
+    }
     documento.moveDown();
+
+    if (dados.telemetria_tcp) {
+      documento.font("Helvetica-Bold").text("Telemetria da usina (Servidor TCP Java)");
+      documento.font("Helvetica");
+      if (dados.telemetria_tcp.status_servidor === "online") {
+        const resumoTelemetria = [
+          dados.telemetria_tcp.usina ? `Usina: ${dados.telemetria_tcp.usina}` : null,
+          dados.telemetria_tcp.status_operacao ? `Status: ${dados.telemetria_tcp.status_operacao}` : null,
+          dados.telemetria_tcp.geracao_atual ? `Geração atual: ${dados.telemetria_tcp.geracao_atual}` : null,
+          dados.telemetria_tcp.tensao ? `Tensão: ${dados.telemetria_tcp.tensao}` : null,
+          dados.telemetria_tcp.frequencia ? `Frequência: ${dados.telemetria_tcp.frequencia}` : null,
+        ].filter(Boolean).join("  |  ");
+        documento.text(resumoTelemetria || dados.telemetria_tcp.bruta || "Servidor TCP Java online");
+      } else {
+        documento.text(
+          dados.telemetria_tcp.mensagem_erro ||
+            "Servidor TCP Java (porta 5050) indisponível na geração deste relatório.",
+        );
+      }
+      documento.moveDown();
+    }
 
     documento.font("Helvetica-Bold").text("Detalhamento mensal");
     documento.moveDown(0.4);

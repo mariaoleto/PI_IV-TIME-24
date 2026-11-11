@@ -1,8 +1,26 @@
+import crypto from "node:crypto";
 import mongoose from "mongoose";
+import { lerConfigAuth } from "../auth/auth_config";
 import { Membro } from "../geracao_creditos/energia_model";
-import { montarResumoEnergia } from "../geracao_creditos/energia_service";
+import {
+  calcularCotasViaJavaTcp,
+  consultarTelemetriaUsinaTcp,
+  EnviarComandoTcpFn,
+  montarResumoEnergia,
+} from "../geracao_creditos/energia_service";
 import { Relatorio } from "./relatorios_model";
-import { DadosRelatorioPdf, gerarPdfRelatorio, LinhaRelatorio } from "./relatorios_pdf";
+import {
+  DadosRelatorioPdf,
+  gerarPdfRelatorio,
+  LinhaRelatorio,
+  TelemetriaPdf,
+} from "./relatorios_pdf";
+
+export type DepsRelatorios = {
+  enviarTcp?: EnviarComandoTcpFn;
+  buscarMembroPorId?: (id: string) => Promise<Record<string, unknown> | null>;
+  montarResumo?: typeof montarResumoEnergia;
+};
 
 export type TipoRelatorio =
   | "relatorio_mensal"
@@ -32,36 +50,86 @@ function arredondar(valor: number) {
   return Number(valor.toFixed(1));
 }
 
-async function obterDadosPdf(
+export async function obterDadosPdf(
   membroId: string,
   tipo: TipoRelatorio,
   referencia: string,
+  deps: DepsRelatorios = {},
 ): Promise<DadosRelatorioPdf> {
   if (!mongoose.Types.ObjectId.isValid(membroId)) {
     throw new ErroRelatorio("Identificador de membro inválido.", 401);
   }
 
-  const membro = await Membro.findById(membroId).select("nome usina_id").lean<Record<string, unknown>>();
+  const buscarMembro = deps.buscarMembroPorId ?? ((id: string) =>
+    Membro.findById(id).select("nome usina_id").lean<Record<string, unknown>>()
+  );
+  const membro = await buscarMembro(membroId);
   if (!membro) throw new ErroRelatorio("Membro não encontrado.", 404);
 
   const ano = referencia.slice(0, 4);
-  const resumo = await montarResumoEnergia({
-    ano,
-    usinaId: membro.usina_id?.toString(),
-    membroId,
-  });
+  const montarResumo = deps.montarResumo ?? montarResumoEnergia;
+  let resumo;
+  try {
+    resumo = await montarResumo({
+      ano,
+      usinaId: membro.usina_id?.toString(),
+      membroId,
+      enviarTcp: deps.enviarTcp,
+    });
+  } catch (erro) {
+    const mensagem = erro instanceof Error ? erro.message : "Não foi possível montar o resumo de energia.";
+    throw new ErroRelatorio(mensagem, 400);
+  }
+
+  const telemetriaResultado = await consultarTelemetriaUsinaTcp(deps.enviarTcp);
+  const telemetriaPdf: TelemetriaPdf = {
+    status_servidor: telemetriaResultado.status_servidor_tcp,
+    usina: telemetriaResultado.usina,
+    status_operacao: telemetriaResultado.status_operacao,
+    geracao_atual: telemetriaResultado.geracao_atual,
+    tensao: telemetriaResultado.tensao,
+    frequencia: telemetriaResultado.frequencia,
+    bruta: telemetriaResultado.telemetria,
+    mensagem_erro: telemetriaResultado.mensagem_erro,
+  };
+
   const mesesDoRelatorio =
     tipo === "demonstrativo_anual"
       ? resumo.meses
       : resumo.meses.filter((mes) => mes.mes_referencia === referencia);
 
-  const meses: LinhaRelatorio[] = mesesDoRelatorio.map((mes) => ({
-    mes_referencia: mes.mes_referencia,
-    geracao_kwh: mes.geracao_kwh,
-    creditos_liquidos_kwh: mes.creditos_liquidos_kwh,
-    consumo_kwh: mes.consumo_kwh,
-    saldo_mes_kwh: mes.saldo_mes_kwh,
-  }));
+  let tcpCalculoDisponivel = true;
+  let calculouViaTcp = false;
+  const meses: LinhaRelatorio[] = [];
+  for (const mes of mesesDoRelatorio) {
+    let creditosLiquidos = mes.creditos_liquidos_kwh;
+    if (mes.geracao_kwh > 0 && resumo.percentual_cota > 0 && tcpCalculoDisponivel) {
+      const resultadoTcp = await calcularCotasViaJavaTcp(
+        mes.geracao_kwh,
+        [resumo.percentual_cota],
+        deps.enviarTcp,
+      );
+      if (resultadoTcp && resultadoTcp[resumo.percentual_cota] !== undefined) {
+        creditosLiquidos = arredondar(resultadoTcp[resumo.percentual_cota]);
+        calculouViaTcp = true;
+      } else {
+        tcpCalculoDisponivel = false;
+      }
+    }
+
+    meses.push({
+      mes_referencia: mes.mes_referencia,
+      geracao_kwh: mes.geracao_kwh,
+      creditos_liquidos_kwh: creditosLiquidos,
+      consumo_kwh: mes.consumo_kwh,
+      saldo_mes_kwh: arredondar(creditosLiquidos - mes.consumo_kwh),
+    });
+  }
+
+  const origemDadosTcp = calculouViaTcp || telemetriaPdf.status_servidor === "online"
+    ? "Java Socket TCP (porta 5050)"
+    : "Fallback local / MongoDB (Servidor TCP Java offline)";
+
   const totalGeracao = meses.reduce((total, mes) => total + mes.geracao_kwh, 0);
   const totalCreditos = meses.reduce((total, mes) => total + mes.creditos_liquidos_kwh, 0);
   const totalConsumo = meses.reduce((total, mes) => total + mes.consumo_kwh, 0);
@@ -89,6 +157,8 @@ async function obterDadosPdf(
     total_consumo_kwh: arredondar(totalConsumo),
     saldo_kwh: arredondar(saldo),
     economia_estimada_reais: Number((saldo * resumo.tarifa_kwh).toFixed(2)),
+    origem_dados_tcp: origemDadosTcp,
+    telemetria_tcp: telemetriaPdf,
     meses,
   };
 }
@@ -97,6 +167,7 @@ export async function gerarRelatorio(
   membroId: string,
   tipo: TipoRelatorio,
   periodo: { referencia?: string; ano?: string },
+  deps: DepsRelatorios = {},
 ) {
   let referencia: string;
   if (tipo === "demonstrativo_anual") {
@@ -108,7 +179,7 @@ export async function gerarRelatorio(
     validarReferencia(referencia);
   }
 
-  const dados = await obterDadosPdf(membroId, tipo, referencia);
+  const dados = await obterDadosPdf(membroId, tipo, referencia, deps);
   const arquivo = await gerarPdfRelatorio(dados);
   const id = new mongoose.Types.ObjectId();
   const registro = await Relatorio.create({
@@ -127,6 +198,19 @@ export async function gerarRelatorio(
     total_consumo_kwh: dados.total_consumo_kwh,
     saldo_kwh: dados.saldo_kwh,
     economia_estimada_reais: dados.economia_estimada_reais,
+    origem_dados_tcp: dados.origem_dados_tcp,
+    telemetria_tcp: dados.telemetria_tcp
+      ? {
+          status_servidor: dados.telemetria_tcp.status_servidor,
+          usina: dados.telemetria_tcp.usina,
+          status_operacao: dados.telemetria_tcp.status_operacao,
+          geracao_atual: dados.telemetria_tcp.geracao_atual,
+          tensao: dados.telemetria_tcp.tensao,
+          frequencia: dados.telemetria_tcp.frequencia,
+          bruta: dados.telemetria_tcp.bruta,
+          consultado_em: new Date(),
+        }
+      : undefined,
   });
   return { arquivo, registro, dados };
 }
@@ -136,6 +220,70 @@ export async function buscarRelatoriosDoMembro(membroId: string) {
     .select("-arquivo_pdf")
     .sort({ data_geracao: -1 })
     .lean();
+}
+
+export function gerarTicketDownloadRelatorio(
+  membroId: string,
+  relatorioId: string,
+  ttlSegundos = 120,
+  agoraMs = Date.now(),
+): string {
+  const expira = Math.floor(agoraMs / 1000) + ttlSegundos;
+  const carga = `${membroId}.${relatorioId}.${expira}`;
+  const assinatura = crypto
+    .createHmac("sha256", lerConfigAuth().segredo)
+    .update(carga)
+    .digest("hex");
+  return `${carga}.${assinatura}`;
+}
+
+export function validarTicketDownloadRelatorio(
+  ticket: string,
+  relatorioId: string,
+  agoraMs = Date.now(),
+): string | null {
+  const partes = ticket.split(".");
+  if (partes.length !== 4) return null;
+  const [membroId, idRelatorio, expiraStr, assinaturaHex] = partes;
+  if (!membroId || idRelatorio !== relatorioId) return null;
+  if (!mongoose.Types.ObjectId.isValid(membroId) || !mongoose.Types.ObjectId.isValid(idRelatorio)) {
+    return null;
+  }
+  const expira = Number(expiraStr);
+  if (!Number.isFinite(expira) || Math.floor(agoraMs / 1000) > expira) {
+    return null;
+  }
+  if (!/^[0-9a-f]{64}$/i.test(assinaturaHex)) return null;
+
+  const carga = `${membroId}.${idRelatorio}.${expiraStr}`;
+  const esperado = crypto
+    .createHmac("sha256", lerConfigAuth().segredo)
+    .update(carga)
+    .digest();
+  const recebido = Buffer.from(assinaturaHex, "hex");
+  if (recebido.length !== esperado.length || !crypto.timingSafeEqual(recebido, esperado)) {
+    return null;
+  }
+  return membroId;
+}
+
+export async function prepararTicketDownload(membroId: string, relatorioId: string) {
+  if (!mongoose.Types.ObjectId.isValid(relatorioId)) {
+    throw new ErroRelatorio("Identificador de relatório inválido.");
+  }
+  const existe = await Relatorio.exists({
+    _id: new mongoose.Types.ObjectId(relatorioId),
+    membro_id: new mongoose.Types.ObjectId(membroId),
+  });
+  if (!existe) throw new ErroRelatorio("Relatório não encontrado.", 404);
+
+  const ttlSegundos = 120;
+  const ticket = gerarTicketDownloadRelatorio(membroId, relatorioId, ttlSegundos);
+  return {
+    ticket,
+    download_url: `/relatorios/${relatorioId}/download?ticket=${ticket}`,
+    expira_em_segundos: ttlSegundos,
+  };
 }
 
 export async function buscarArquivoRelatorio(membroId: string, relatorioId: string) {

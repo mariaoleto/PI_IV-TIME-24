@@ -1,11 +1,14 @@
 import { NextFunction, Request, Response } from "express";
 import { RequisicaoAutenticada } from "../auth/auth_middleware";
+import { verificarToken } from "../auth/auth_token";
 import {
   buscarArquivoRelatorio,
   buscarRelatoriosDoMembro,
   ErroRelatorio,
   gerarRelatorio,
+  prepararTicketDownload,
   TipoRelatorio,
+  validarTicketDownloadRelatorio,
 } from "./relatorios_service";
 
 function membroLogado(requisicao: Request) {
@@ -54,12 +57,38 @@ export async function listarRelatorios(requisicao: Request, resposta: Response, 
   }
 }
 
-export async function baixarRelatorio(requisicao: Request, resposta: Response, proximo: NextFunction) {
+export async function emitirTicketDownload(
+  requisicao: Request,
+  resposta: Response,
+  proximo: NextFunction,
+) {
   try {
-    const relatorio = await buscarArquivoRelatorio(
+    const ticket = await prepararTicketDownload(
       membroLogado(requisicao),
       String(requisicao.params.id),
     );
+    resposta.json(ticket);
+  } catch (erro) {
+    tratarErro(erro, resposta, proximo);
+  }
+}
+
+export async function baixarRelatorio(requisicao: Request, resposta: Response, proximo: NextFunction) {
+  try {
+    const relatorioId = String(requisicao.params.id);
+    const [esquema, token] = (requisicao.headers.authorization ?? "").split(" ");
+    const usuarioBearer = esquema === "Bearer" && token ? verificarToken(token) : null;
+    const ticketQuery = requisicao.query.ticket?.toString() ?? "";
+    const membroViaTicket = !usuarioBearer && ticketQuery
+      ? validarTicketDownloadRelatorio(ticketQuery, relatorioId)
+      : null;
+
+    const membroId = usuarioBearer?.id ?? membroViaTicket;
+    if (!membroId) {
+      throw new ErroRelatorio("Sessão inválida ou expirada. Entre novamente.", 401);
+    }
+
+    const relatorio = await buscarArquivoRelatorio(membroId, relatorioId);
     resposta.setHeader("Content-Type", "application/pdf");
     resposta.setHeader(
       "Content-Disposition",

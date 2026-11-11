@@ -9,9 +9,8 @@ import {
   montarResumoEnergia,
   listarCotasDistribuicao,
   registrarLancamentoMensal,
+  consultarTelemetriaUsinaTcp,
 } from "./energia_service";
-// ponte de comunicação TCP com o Java
-import { enviarComandoTcp } from "../../utils/cliente_tcp_java";
 
 // monta e retorna em formato json o resumo dos dados baseado no ano, usina e membro
 export async function buscarResumoEnergia(
@@ -76,25 +75,22 @@ export async function salvarLancamentoMensal(
 }
 
 // consulta a telemetria do servidor TCP em Java 
-export async function consultarTelemetriaTcp(_requisicao: Request, resposta: Response,) {
-  try {
-    // envia o comando STATUS_USINA pelo Socket TCP na porta 5050
-    const respostaJava = await enviarComandoTcp("STATUS_USINA");
+export async function consultarTelemetriaTcp(_requisicao: Request, resposta: Response) {
+  const resultado = await consultarTelemetriaUsinaTcp();
 
-    // se o Java responder com sucesso, devolve os dados em json
-    resposta.json({
+  if (resultado.status_servidor_tcp === "online") {
+    return resposta.json({
       status_servidor_tcp: "online",
-      servidor: "Java Socket TCP (porta 5050)",
-      telemetria: respostaJava,
-    });
-  } catch (erro) {
-    // se o java estiver desligado, ele avisa sem travar 
-    const mensagemErro = erro instanceof Error ? erro.message : "Erro desconhecido";
-    resposta.status(503).json({
-      status_servidor_tcp: "offline",
-      servidor: "Java Socket TCP (porta 5050)",
-      mensagem: mensagemErro,
-      aviso: "Inicie o servidor Java com: java -cp backend/java/bin br.com.solis.tcp.Servidor",
+      servidor: resultado.servidor,
+      telemetria: resultado.telemetria,
+      detalhes: resultado,
     });
   }
+
+  return resposta.status(503).json({
+    status_servidor_tcp: "offline",
+    servidor: resultado.servidor,
+    mensagem: resultado.mensagem_erro || "Servidor TCP Java não está ativo na porta 5050",
+    aviso: "Inicie o servidor Java com: java -cp backend/java/bin br.com.solis.tcp.Servidor",
+  });
 }

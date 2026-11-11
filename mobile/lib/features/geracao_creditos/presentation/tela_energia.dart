@@ -40,7 +40,7 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
   late Future<ResumoEnergia> _resumoFuturo;
   int _abaSelecionada = 0;
 
-  // barra inferior: Início volta ao painel, Perfil abre o perfil (Relatórios ainda não existe)
+  // barra inferior: Início volta ao painel, Relatórios e Perfil navegam mantendo a raiz limpa
   void _aoSelecionarAbaInferior(int indice) {
     if (indice == 0) {
       if (Navigator.of(context).canPop()) {
@@ -57,16 +57,19 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
       }
     }
     if (indice == 2) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TelaRelatorios(
-            repositorio: RepositorioApiRelatorios(),
-            emailMembro: widget.emailMembro,
-            aoPerfilAtualizado: widget.aoPerfilAtualizado,
-            repositorioPerfil: widget.repositorioPerfil,
-          ),
+      final rota = MaterialPageRoute(
+        builder: (_) => TelaRelatorios(
+          repositorio: RepositorioApiRelatorios(),
+          emailMembro: widget.emailMembro,
+          aoPerfilAtualizado: widget.aoPerfilAtualizado,
+          repositorioPerfil: widget.repositorioPerfil,
         ),
       );
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pushReplacement(rota);
+      } else {
+        Navigator.of(context).push(rota);
+      }
     }
     if (indice == 3) {
       abrirTelaPerfil(

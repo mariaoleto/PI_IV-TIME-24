@@ -195,31 +195,34 @@ class _EstadoTelaCriarConta extends State<TelaCriarConta> {
         borderRadius: BorderRadius.circular(14),
         onTap: () => setState(() => _tipoConta = valor),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: selecionado ? corPrimaria : const Color(0xFFE3E6EB),
             ),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icone,
-                size: 18,
-                color: selecionado ? Colors.white : corPrimaria,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                rotulo,
-                style: TextStyle(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icone,
+                  size: 18,
                   color: selecionado ? Colors.white : corPrimaria,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w700,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  rotulo,
+                  style: TextStyle(
+                    color: selecionado ? Colors.white : corPrimaria,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
