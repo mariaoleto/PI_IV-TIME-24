@@ -5,12 +5,20 @@
 // recebe a requisicao HTTP, chama o service e devolve a resposta.
 
 import { NextFunction, Request, Response } from "express";
+import { verificarToken } from "../auth/auth_token";
 import {
   montarResumoEnergia,
   listarCotasDistribuicao,
+  registrarConsumoMensal,
   registrarLancamentoMensal,
   consultarTelemetriaUsinaTcp,
 } from "./energia_service";
+
+function extrairMembroIdDoToken(requisicao: Request): string | undefined {
+  const [esquema, token] = (requisicao.headers.authorization ?? "").split(" ");
+  if (esquema !== "Bearer" || !token) return undefined;
+  return verificarToken(token)?.id;
+}
 
 // monta e retorna em formato json o resumo dos dados baseado no ano, usina e membro
 export async function buscarResumoEnergia(
@@ -19,10 +27,13 @@ export async function buscarResumoEnergia(
   proximo: NextFunction,
 ) {
   try {
+    const email = requisicao.query.email?.toString();
+    const membroIdQuery = requisicao.query.membro_id?.toString();
     const resumo = await montarResumoEnergia({
       ano: requisicao.query.ano?.toString(),
       usinaId: requisicao.query.usina_id?.toString(),
-      membroId: requisicao.query.membro_id?.toString(),
+      membroId: membroIdQuery ?? (!email ? extrairMembroIdDoToken(requisicao) : undefined),
+      email,
     });
 
     resposta.json(resumo);
@@ -66,6 +77,38 @@ export async function salvarLancamentoMensal(
     const resultado = await registrarLancamentoMensal({
       mesReferencia: mes_referencia.toString(),
       geracaoKwh: Number(geracao_kwh),
+      usinaId: usina_id?.toString(),
+    });
+    resposta.status(201).json(resultado);
+  } catch (erro) {
+    proximo(erro);
+  }
+}
+
+// salva ou atualiza o consumo mensal de um membro
+export async function salvarConsumoMensal(
+  requisicao: Request,
+  resposta: Response,
+  proximo: NextFunction,
+) {
+  try {
+    const { mes_referencia, consumo_kwh, membro_id, email, usina_id } = requisicao.body ?? {};
+    if (!mes_referencia) {
+      return resposta.status(400).json({ message: "O período de referência (mes_referencia) é obrigatório." });
+    }
+    const consumoNumerico = Number(consumo_kwh);
+    if (consumo_kwh === undefined || !Number.isFinite(consumoNumerico) || consumoNumerico < 0) {
+      return resposta.status(400).json({ message: "O consumo mensal (consumo_kwh) deve ser igual ou maior que zero." });
+    }
+
+    const emailLimpo = email?.toString();
+    const membroId = membro_id?.toString() ?? extrairMembroIdDoToken(requisicao);
+
+    const resultado = await registrarConsumoMensal({
+      mesReferencia: mes_referencia.toString(),
+      consumoKwh: consumoNumerico,
+      membroId,
+      email: emailLimpo,
       usinaId: usina_id?.toString(),
     });
     resposta.status(201).json(resultado);

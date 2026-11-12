@@ -14,6 +14,8 @@ import roteadorPainelMembro from "./modules/painel_membro/painel_membro_routes";
 import roteadorPerfil from "./modules/perfil/perfil_routes";
 import roteadorAuth from "./modules/auth/auth_routes";
 import roteadorRelatorios from "./modules/relatorios/relatorios_routes";
+import roteadorGestao from "./modules/gestao/gestao_routes";
+import { migrarColecaoUsinasParaUsina } from "./modules/gestao/gestao_service";
 
 // garante resolução de DNS segura para MongoDB Atlas em ambientes locais/Windows
 try {
@@ -39,6 +41,7 @@ app.use("/painel-membro", roteadorPainelMembro); // o app já chama /painel-memb
 app.use("/auth", roteadorAuth); // cadastro, login (JWT) e recuperação de senha
 app.use("/perfil", roteadorPerfil); // protegido por token (veja perfil_routes.ts)
 app.use("/relatorios", roteadorRelatorios);
+app.use("/gestao", roteadorGestao);
 
 // trata erros da rota
 app.use(
@@ -55,8 +58,18 @@ app.use(
 
 // conecta no mongoDB e inicia o servidor
 mongoose.connect(env.mongodbUri)
-  .then(() => {
+  .then(async () => {
     console.log("Conectado ao MongoDB");
+    try {
+      const migradas = await migrarColecaoUsinasParaUsina();
+      if (migradas > 0) {
+        console.log(
+          `Migração automática: ${migradas} usina(s) movida(s) da coleção "usinas" para "usina".`,
+        );
+      }
+    } catch (erroMigracao) {
+      console.warn("Aviso ao unificar coleção usina:", erroMigracao);
+    }
     app.listen(env.port, () => {
       console.log(`Servidor rodando na porta ${env.port}`);
     });

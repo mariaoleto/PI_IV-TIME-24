@@ -8,6 +8,7 @@ import 'dart:math' as matematica;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../auth/data/sessao_auth.dart';
 import '../../painel_membro/domain/repositorio_painel_membro.dart';
 import '../../painel_membro/presentation/tela_painel_membro.dart';
 import '../../perfil/domain/repositorio_perfil.dart';
@@ -21,14 +22,16 @@ class TelaEnergia extends StatefulWidget {
     super.key,
     required this.repositorio,
     this.emailMembro,
+    this.membroId,
     this.aoPerfilAtualizado,
     this.repositorioPerfil,
   });
 
   final RepositorioEnergia repositorio;
 
-  // e-mail do membro logado: necessário para as abas Início e Perfil da barra inferior
+  // dados do membro logado: usados para consultar energia/consumo e manter as abas sincronizadas
   final String? emailMembro;
+  final String? membroId;
   final ValueChanged<PerfilMembro>? aoPerfilAtualizado;
   final RepositorioPerfil? repositorioPerfil; // permite trocar o repositório (útil nos testes)
 
@@ -40,8 +43,19 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
   late Future<ResumoEnergia> _resumoFuturo;
   int _abaSelecionada = 0;
 
+  String? get _emailEfetivo {
+    final email = widget.emailMembro ?? SessaoAuth.instancia.usuario?.email;
+    return (email != null && email.trim().isNotEmpty) ? email.trim() : null;
+  }
+
+  String? get _membroIdEfetivo {
+    final id = widget.membroId ?? SessaoAuth.instancia.usuario?.id;
+    return (id != null && id.trim().isNotEmpty) ? id.trim() : null;
+  }
+
   // barra inferior: Início volta ao painel, Relatórios e Perfil navegam mantendo a raiz limpa
   void _aoSelecionarAbaInferior(int indice) {
+    final email = _emailEfetivo;
     if (indice == 0) {
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
@@ -50,7 +64,7 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
           MaterialPageRoute(
             builder: (_) => TelaPainelMembro(
               repositorio: RepositorioApiPainelMembro(),
-              emailMembro: widget.emailMembro,
+              emailMembro: email,
             ),
           ),
         );
@@ -60,7 +74,7 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
       final rota = MaterialPageRoute(
         builder: (_) => TelaRelatorios(
           repositorio: RepositorioApiRelatorios(),
-          emailMembro: widget.emailMembro,
+          emailMembro: email,
           aoPerfilAtualizado: widget.aoPerfilAtualizado,
           repositorioPerfil: widget.repositorioPerfil,
         ),
@@ -74,7 +88,7 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
     if (indice == 3) {
       abrirTelaPerfil(
         context,
-        email: widget.emailMembro,
+        email: email,
         aoPerfilAtualizado: widget.aoPerfilAtualizado,
         repositorio: widget.repositorioPerfil,
       );
@@ -88,7 +102,11 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
   }
 
   void _carregarResumo() {
-    _resumoFuturo = widget.repositorio.buscarResumo(ano: 2026);
+    _resumoFuturo = widget.repositorio.buscarResumo(
+      ano: 2026,
+      membroId: _membroIdEfetivo,
+      email: _emailEfetivo,
+    );
   }
 
   Future<void> _atualizar() async {
@@ -96,6 +114,28 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
       _carregarResumo();
     });
     await _resumoFuturo;
+  }
+
+  Future<void> _abrirRegistroConsumo(ResumoEnergia resumo) async {
+    final salvou = await showDialog<bool>(
+      context: context,
+      builder: (_) => _DialogoRegistrarConsumo(
+        resumo: resumo,
+        repositorio: widget.repositorio,
+        membroId: _membroIdEfetivo,
+        email: _emailEfetivo,
+      ),
+    );
+    if (salvou == true && mounted) {
+      await _atualizar();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Consumo mensal registrado com sucesso!'),
+          backgroundColor: Color(0xFF059669),
+        ),
+      );
+    }
   }
 
   @override
@@ -137,7 +177,11 @@ class _EstadoTelaEnergia extends State<TelaEnergia> {
                         if (_abaSelecionada == 0)
                           _ConteudoGeracao(resumo: resumo)
                         else
-                          _ConteudoConsumo(resumo: resumo),
+                          _ConteudoConsumo(
+                            resumo: resumo,
+                            onRegistrarConsumo: () =>
+                                _abrirRegistroConsumo(resumo),
+                          ),
                         const SizedBox(height: 14),
                         _CartaoSaldo(resumo: resumo),
                       ],
@@ -380,9 +424,13 @@ class _ConteudoGeracao extends StatelessWidget {
 }
 
 class _ConteudoConsumo extends StatelessWidget {
-  const _ConteudoConsumo({required this.resumo});
+  const _ConteudoConsumo({
+    required this.resumo,
+    required this.onRegistrarConsumo,
+  });
 
   final ResumoEnergia resumo;
+  final VoidCallback onRegistrarConsumo;
 
   @override
   Widget build(BuildContext context) {
@@ -422,14 +470,93 @@ class _ConteudoConsumo extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                height: 126,
-                child: _GraficoBarrasMensais(
-                  meses: mesesAtivos,
-                  ehConsumo: true,
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: onRegistrarConsumo,
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Registrar consumo'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF182642),
+                    side: const BorderSide(color: Color(0xFFD6DEE8)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
+              const SizedBox(height: 14),
+              if (mesesAtivos.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 22,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE5EAF0)),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.bolt_outlined,
+                        color: Color(0xFFE59828),
+                        size: 28,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Nenhum consumo registrado ainda',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFF182642),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Informe o consumo em kWh da sua fatura para acompanhar seu saldo.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color(0xFF6C7686),
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: onRegistrarConsumo,
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('Informar consumo mensal'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF182642),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 126,
+                  child: _GraficoBarrasMensais(
+                    meses: mesesAtivos,
+                    ehConsumo: true,
+                  ),
+                ),
             ],
           ),
         ),
@@ -447,21 +574,33 @@ class _ConteudoConsumo extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              for (var i = 0; i < mesesAtivos.length; i++) ...[
-                if (i > 0)
-                  const Divider(
-                    height: 1,
-                    thickness: 0.8,
-                    color: Color(0xFFEDF1F5),
+              if (mesesAtivos.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Adicione seu consumo mensal acima para ver o histórico mês a mês.',
+                    style: TextStyle(
+                      color: Color(0xFF7A8795),
+                      fontSize: 13,
+                    ),
                   ),
-                _LinhaProgressoMes(
-                  rotulo: mesesAtivos[i].rotulo,
-                  valor: mesesAtivos[i].consumoKwh,
-                  maiorValor: maiorKwh,
-                  corBarra: const Color(0xFFE59828),
-                  corFundo: const Color(0xFFFDECD4),
-                ),
-              ],
+                )
+              else
+                for (var i = 0; i < mesesAtivos.length; i++) ...[
+                  if (i > 0)
+                    const Divider(
+                      height: 1,
+                      thickness: 0.8,
+                      color: Color(0xFFEDF1F5),
+                    ),
+                  _LinhaProgressoMes(
+                    rotulo: mesesAtivos[i].rotulo,
+                    valor: mesesAtivos[i].consumoKwh,
+                    maiorValor: maiorKwh,
+                    corBarra: const Color(0xFFE59828),
+                    corFundo: const Color(0xFFFDECD4),
+                  ),
+                ],
             ],
           ),
         ),
@@ -536,7 +675,7 @@ class _GraficoBarrasMensais extends StatelessWidget {
               children: [
                 if (selecionado)
                   Text(
-                    ehConsumo ? '---' : valor.toStringAsFixed(0),
+                    valor.toStringAsFixed(0),
                     style: TextStyle(
                       color: corDestaque,
                       fontSize: 10,
@@ -751,6 +890,242 @@ class _NavegacaoInferior extends StatelessWidget {
             selectedIcon: Icon(itens[i].$1, color: const Color(0xFF142340)),
             label: itens[i].$2,
           ),
+      ],
+    );
+  }
+}
+
+class _DialogoRegistrarConsumo extends StatefulWidget {
+  const _DialogoRegistrarConsumo({
+    required this.resumo,
+    required this.repositorio,
+    this.membroId,
+    this.email,
+  });
+
+  final ResumoEnergia resumo;
+  final RepositorioEnergia repositorio;
+  final String? membroId;
+  final String? email;
+
+  @override
+  State<_DialogoRegistrarConsumo> createState() =>
+      _EstadoDialogoRegistrarConsumo();
+}
+
+class _EstadoDialogoRegistrarConsumo extends State<_DialogoRegistrarConsumo> {
+  final _formulario = GlobalKey<FormState>();
+  final _consumoController = TextEditingController();
+  late String _mesReferencia;
+  bool _salvando = false;
+  String? _erro;
+
+  List<MesEnergia> get _opcoesMeses {
+    if (widget.resumo.meses.isNotEmpty) {
+      return widget.resumo.meses;
+    }
+    const rotulos = [
+      'Jan',
+      'Fev',
+      'Mar',
+      'Abr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Set',
+      'Out',
+      'Nov',
+      'Dez',
+    ];
+    return List.generate(
+      12,
+      (i) => MesEnergia(
+        rotulo: rotulos[i],
+        referencia:
+            '${widget.resumo.ano}-${(i + 1).toString().padLeft(2, '0')}',
+        geracaoKwh: 0,
+        creditosLiquidosKwh: 0,
+        consumoKwh: 0,
+        saldoMesKwh: 0,
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final opcoes = _opcoesMeses;
+    final agora = DateTime.now();
+    final referenciaAtual =
+        '${widget.resumo.ano}-${agora.month.toString().padLeft(2, '0')}';
+    final mesEncontrado = opcoes.firstWhere(
+      (m) => m.referencia == referenciaAtual,
+      orElse: () => opcoes.lastWhere(
+        (m) => m.geracaoKwh > 0 || m.creditosLiquidosKwh > 0,
+        orElse: () => opcoes.first,
+      ),
+    );
+    _mesReferencia = mesEncontrado.referencia;
+    _preencherConsumoDoMes(_mesReferencia);
+  }
+
+  void _preencherConsumoDoMes(String referencia) {
+    final mes = _opcoesMeses.cast<MesEnergia?>().firstWhere(
+      (m) => m?.referencia == referencia,
+      orElse: () => null,
+    );
+    if (mes != null && mes.consumoKwh > 0) {
+      _consumoController.text = mes.consumoKwh == mes.consumoKwh.roundToDouble()
+          ? mes.consumoKwh.toStringAsFixed(0)
+          : mes.consumoKwh.toString();
+    } else {
+      _consumoController.clear();
+    }
+  }
+
+  @override
+  void dispose() {
+    _consumoController.dispose();
+    super.dispose();
+  }
+
+  double? _lerConsumo(String texto) {
+    final normalizado = texto.trim().replaceAll(',', '.');
+    return double.tryParse(normalizado);
+  }
+
+  Future<void> _salvar() async {
+    if (!_formulario.currentState!.validate()) return;
+    final valor = _lerConsumo(_consumoController.text);
+    if (valor == null) return;
+
+    setState(() {
+      _salvando = true;
+      _erro = null;
+    });
+
+    final ok = await widget.repositorio.salvarConsumoMensal(
+      mesReferencia: _mesReferencia,
+      consumoKwh: valor,
+      membroId: widget.membroId,
+      email: widget.email,
+    );
+
+    if (!mounted) return;
+    if (ok) {
+      Navigator.of(context).pop(true);
+    } else {
+      setState(() {
+        _salvando = false;
+        _erro =
+            'Não foi possível salvar o consumo. Verifique sua conexão e conta.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final opcoes = _opcoesMeses;
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      title: const Text(
+        'Registrar consumo mensal',
+        style: TextStyle(
+          color: Color(0xFF001231),
+          fontWeight: FontWeight.w800,
+          fontSize: 18,
+        ),
+      ),
+      content: Form(
+        key: _formulario,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _mesReferencia,
+              decoration: const InputDecoration(
+                labelText: 'Mês de referência',
+                border: OutlineInputBorder(),
+              ),
+              items: [
+                for (final mes in opcoes)
+                  DropdownMenuItem(
+                    value: mes.referencia,
+                    child: Text('${mes.rotulo}/${widget.resumo.ano}'),
+                  ),
+              ],
+              onChanged: _salvando
+                  ? null
+                  : (novo) {
+                      if (novo == null) return;
+                      setState(() {
+                        _mesReferencia = novo;
+                        _preencherConsumoDoMes(novo);
+                      });
+                    },
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _consumoController,
+              enabled: !_salvando,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Consumo (kWh)',
+                hintText: 'Ex.: 210',
+                suffixText: 'kWh',
+                border: OutlineInputBorder(),
+              ),
+              validator: (texto) {
+                final v = _lerConsumo(texto ?? '');
+                if (v == null || v < 0) {
+                  return 'Informe um valor válido em kWh';
+                }
+                return null;
+              },
+            ),
+            if (_erro != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _erro!,
+                style: const TextStyle(
+                  color: Color(0xFFDC2626),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _salvando ? null : () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _salvando ? null : _salvar,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF182642),
+            foregroundColor: Colors.white,
+          ),
+          child: _salvando
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Salvar'),
+        ),
       ],
     );
   }

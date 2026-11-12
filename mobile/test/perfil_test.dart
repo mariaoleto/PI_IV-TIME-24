@@ -90,6 +90,7 @@ class RepositorioEnergiaFalso implements RepositorioEnergia {
     int? ano,
     String? usinaId,
     String? membroId,
+    String? email,
   }) async => ResumoEnergia.exemplo();
 
   @override
@@ -100,6 +101,15 @@ class RepositorioEnergiaFalso implements RepositorioEnergia {
   Future<bool> salvarLancamentoMensal({
     required String mesReferencia,
     required double geracaoKwh,
+    String? usinaId,
+  }) async => true;
+
+  @override
+  Future<bool> salvarConsumoMensal({
+    required String mesReferencia,
+    required double consumoKwh,
+    String? membroId,
+    String? email,
     String? usinaId,
   }) async => true;
 }

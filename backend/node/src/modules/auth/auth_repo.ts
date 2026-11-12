@@ -18,12 +18,56 @@ export type NovoMembro = {
   senha_hash: string;
   tipo_usuario: "membro" | "admin";
   data_cadastro: Date;
+  ultimo_login_em: Date;
+};
+
+export type DadosComplementoCadastro = {
+  nome: string;
+  cpf: string;
+  telefone: string | null;
+  senha_hash: string;
+  tipo_usuario: "membro" | "admin";
+  data_cadastro: Date;
+  ultimo_login_em: Date;
 };
 
 export async function criarMembro(dados: NovoMembro): Promise<Doc> {
   const { telefone, ...resto } = dados;
-  const criado = await Membro.create(telefone ? { ...resto, telefone } : resto);
+  const criado = await Membro.create(
+    telefone
+      ? { ...resto, telefone, cadastro_concluido: true }
+      : { ...resto, cadastro_concluido: true },
+  );
   return criado.toObject() as Doc;
+}
+
+// completa um membro pré-cadastrado pelo administrador preservando _id e usina_id
+export async function completarPreCadastroMembro(
+  membroId: string,
+  dados: DadosComplementoCadastro,
+): Promise<Doc | null> {
+  const { telefone, ...resto } = dados;
+  const setCampos: Record<string, unknown> = {
+    ...resto,
+    atualizado_em: dados.ultimo_login_em,
+    cadastro_concluido: true,
+  };
+  if (telefone) {
+    setCampos.telefone = telefone;
+  }
+
+  return Membro.findOneAndUpdate(
+    {
+      _id: idObjeto(membroId, "membro_id"),
+      $or: [
+        { senha_hash: { $exists: false } },
+        { senha_hash: null },
+        { senha_hash: "" },
+      ],
+    },
+    { $set: setCampos },
+    { new: true },
+  ).lean<Doc>();
 }
 
 // usado para impedir dois cadastros com o mesmo CPF

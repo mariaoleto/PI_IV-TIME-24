@@ -6,6 +6,10 @@
 // mesmas regras e mesmo contrato JSON do backend Java (GET /admin/painel)
 
 import {
+  formatarLocalizacaoUsina,
+  lerCapacidadeUsina,
+} from "../../utils/usina_formatacao";
+import {
   buscarUsina,
   buscarUsinaAtiva,
   buscarUsinaIdPelasCotas,
@@ -155,7 +159,7 @@ export async function agregarPainel(entrada: EntradaPainel, agora: Date = new Da
   let base: string | null = null;
   if (registrado) {
     const esperadaInformada = paraNumero(usina?.geracao_esperada_kwh_mes);
-    const capacidade = paraNumero(usina?.capacidade_kwp);
+    const capacidade = lerCapacidadeUsina(usina);
     const esperado =
       esperadaInformada > 0
         ? esperadaInformada
@@ -285,12 +289,15 @@ export async function agregarPainel(entrada: EntradaPainel, agora: Date = new Da
   const peso = { erro: 0, aviso: 1, info: 2 };
   alertas.sort((a, b) => peso[a.severidade] - peso[b.severidade]); // sort estável
 
-  const capacidade = paraNumero(usina?.capacidade_kwp);
+  const capacidade = lerCapacidadeUsina(usina);
+  const localizacao =
+    formatarLocalizacaoUsina(usina?.localizacao) ??
+    formatarLocalizacaoUsina(usina?.local);
   return {
     usina: {
       id: entrada.usinaId,
       nome: usina?.nome ?? null,
-      localizacao: usina?.localizacao ?? null,
+      localizacao,
       capacidade_kwp: capacidade > 0 ? capacidade : null,
       ativa: usina?.ativa !== false,
     },

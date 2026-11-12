@@ -139,3 +139,20 @@ test("consumo acima dos créditos (estimado pela cota e pelo crédito distribuí
   );
   assert.ok(!tem(q, "CONSUMO_ACIMA_CREDITOS"));
 });
+
+test("lê usina pré-definida com potencia_instalada_kwp e localizacao composta", async () => {
+  const p = await agregarPainel(
+    entrada({
+      usina: {
+        nome: "Consórcio Solis",
+        potencia_instalada_kwp: 100,
+        localizacao: { cidade: "Campinas", estado: "SP" },
+      },
+      geracoes: [geracao("2026-10", 11160)],
+    }),
+    AGORA,
+  );
+  assert.equal(p.usina.capacidade_kwp, 100);
+  assert.equal(p.usina.localizacao, "Campinas - SP");
+  assert.equal(p.resumo_mes.eficiencia_percentual, 90);
+});

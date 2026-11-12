@@ -7,18 +7,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../domain/repositorio_energia.dart';
+import '../../gestao/data/modelos_usina.dart';
+import '../../gestao/data/repositorio_usina.dart';
+import '../../gestao/presentation/usina_page.dart';
 import '../../painel_admin/domain/repositorio_painel_admin.dart';
-import '../../painel_admin/presentation/tela_painel_admin.dart';
+import '../../painel_admin/presentation/barra_navegacao_admin.dart';
+import '../../perfil/domain/repositorio_perfil.dart';
 
 class TelaLancamentoGeracao extends StatefulWidget {
   const TelaLancamentoGeracao({
     super.key,
     required this.repositorio,
     this.usinaId,
+    this.nomeAdmin,
+    this.repositorioPainel,
+    this.repositorioUsina,
+    this.repositorioPerfil,
+    this.aoSincronizarPainel,
   });
 
   final RepositorioEnergia repositorio;
   final String? usinaId;
+  final String? nomeAdmin;
+  final RepositorioPainelAdmin? repositorioPainel;
+  final RepositorioUsina? repositorioUsina;
+  final RepositorioPerfil? repositorioPerfil;
+  final ValueChanged<String?>? aoSincronizarPainel;
 
   @override
   State<TelaLancamentoGeracao> createState() => _EstadoTelaLancamentoGeracao();
@@ -28,11 +42,18 @@ class _EstadoTelaLancamentoGeracao extends State<TelaLancamentoGeracao> {
   late final TextEditingController _geracaoController;
   DateTime _periodoSelecionado = DateTime(2026, 10); // Outubro de 2026
 
-  List<CotaMembro> _cotas = [];
+  List<Usina> _usinas = const [];
+  String? _usinaSelecionadaId;
+  List<CotaMembro> _cotas = const [];
   bool _carregandoCotas = true;
+  bool _erroCarregamentoCotas = false;
   bool _salvando = false;
   bool _mostrarSucesso = false;
   String? _mensagemErro;
+
+  bool get _deveListarUsinas =>
+      widget.repositorioUsina != null ||
+      widget.repositorio is RepositorioApiEnergia;
 
   static const List<String> _nomesMeses = [
     'janeiro',
@@ -52,9 +73,10 @@ class _EstadoTelaLancamentoGeracao extends State<TelaLancamentoGeracao> {
   @override
   void initState() {
     super.initState();
+    _usinaSelecionadaId = widget.usinaId;
     _geracaoController = TextEditingController();
     _geracaoController.addListener(() => setState(() {}));
-    _carregarCotas();
+    _inicializar();
   }
 
   @override
@@ -63,95 +85,88 @@ class _EstadoTelaLancamentoGeracao extends State<TelaLancamentoGeracao> {
     super.dispose();
   }
 
-  // busca a lista de cotas da usina no backend
+  Future<void> _inicializar() async {
+    if (_deveListarUsinas) {
+      try {
+        final usinas = await (widget.repositorioUsina ?? RepositorioApiUsina())
+            .listar();
+        if (!mounted) return;
+        setState(() {
+          _usinas = usinas;
+          if (usinas.isNotEmpty &&
+              (_usinaSelecionadaId == null ||
+                  !usinas.any((u) => u.id == _usinaSelecionadaId))) {
+            _usinaSelecionadaId = usinas.first.id;
+          }
+        });
+      } catch (_) {
+        // segue para buscar as cotas com o usinaId já selecionado
+      }
+    }
+    await _carregarCotas();
+  }
+
+  // busca a lista de cotas reais da usina no backend
   Future<void> _carregarCotas() async {
     setState(() {
       _carregandoCotas = true;
+      _erroCarregamentoCotas = false;
       _mensagemErro = null;
     });
 
     try {
       final cotas = await widget.repositorio.buscarCotasDistribuicao(
-        usinaId: widget.usinaId,
+        usinaId: _usinaSelecionadaId,
       );
 
-      if (mounted) {
-        setState(() {
-          // caso a API retorne vazia, usa a lista de cooperados padrão
-          _cotas = cotas.isNotEmpty ? cotas : _cotasExemplo();
-          _carregandoCotas = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _cotas = cotas;
+        _erroCarregamentoCotas = false;
+        _carregandoCotas = false;
+      });
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _cotas = _cotasExemplo();
-          _carregandoCotas = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _cotas = const [];
+        _erroCarregamentoCotas = true;
+        _carregandoCotas = false;
+        _mensagemErro = 'Não foi possível carregar as cotas desta usina.';
+      });
     }
   }
 
-  // lista de membros para exibição visual caso a conexão oscile
-  List<CotaMembro> _cotasExemplo() {
-    return const [
-      CotaMembro(
-        cotaId: '1',
-        membroId: '65',
-        nome: 'João Oliveira',
-        percentual: 25,
-        tarifaKwh: 0.69,
+  void _selecionarUsina(String? novoId) {
+    if (novoId == null || novoId.isEmpty || novoId == _usinaSelecionadaId) {
+      return;
+    }
+    setState(() {
+      _usinaSelecionadaId = novoId;
+      _mostrarSucesso = false;
+    });
+    _carregarCotas();
+  }
+
+  Future<void> _abrirCadastroCotas() async {
+    final retorno = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => UsinaPage(
+          repositorio: widget.repositorioUsina ?? RepositorioApiUsina(),
+          telaInicial: 2,
+          usinaIdInicial: _usinaSelecionadaId,
+          nomeAdmin: widget.nomeAdmin,
+          repositorioPainel: widget.repositorioPainel,
+          repositorioEnergia: widget.repositorio,
+          repositorioPerfil: widget.repositorioPerfil,
+          aoSincronizarPainel: widget.aoSincronizarPainel,
+        ),
       ),
-      CotaMembro(
-        cotaId: '2',
-        membroId: '66',
-        nome: 'Maria Santos',
-        percentual: 18,
-        tarifaKwh: 0.69,
-      ),
-      CotaMembro(
-        cotaId: '3',
-        membroId: '67',
-        nome: 'Carlos Nunes',
-        percentual: 15,
-        tarifaKwh: 0.69,
-      ),
-      CotaMembro(
-        cotaId: '4',
-        membroId: '68',
-        nome: 'Ana Ferreira',
-        percentual: 12,
-        tarifaKwh: 0.69,
-      ),
-      CotaMembro(
-        cotaId: '5',
-        membroId: '69',
-        nome: 'Lucas Pereira',
-        percentual: 10,
-        tarifaKwh: 0.69,
-      ),
-      CotaMembro(
-        cotaId: '6',
-        membroId: '70',
-        nome: 'Sofia Alves',
-        percentual: 8,
-        tarifaKwh: 0.69,
-      ),
-      CotaMembro(
-        cotaId: '7',
-        membroId: '71',
-        nome: 'Pedro Costa',
-        percentual: 7,
-        tarifaKwh: 0.69,
-      ),
-      CotaMembro(
-        cotaId: '8',
-        membroId: '72',
-        nome: 'Juliana Lima',
-        percentual: 5,
-        tarifaKwh: 0.69,
-      ),
-    ];
+    );
+    if (!mounted) return;
+    if (retorno != null && retorno.isNotEmpty) {
+      _usinaSelecionadaId = retorno;
+    }
+    await _inicializar();
   }
 
   // formata a data para a API (ex: 2026-10)
@@ -171,7 +186,12 @@ class _EstadoTelaLancamentoGeracao extends State<TelaLancamentoGeracao> {
     return double.tryParse(texto) ?? 0.0;
   }
 
-  bool get _podeDistribuir => _geracaoInformada > 0 && !_salvando;
+  bool get _podeDistribuir =>
+      _geracaoInformada > 0 &&
+      !_salvando &&
+      !_carregandoCotas &&
+      _cotas.isNotEmpty &&
+      !_erroCarregamentoCotas;
 
   // modal para seleção do mês e ano de referência
   Future<void> _abrirSeletorPeriodo() async {
@@ -220,12 +240,13 @@ class _EstadoTelaLancamentoGeracao extends State<TelaLancamentoGeracao> {
     final sucesso = await widget.repositorio.salvarLancamentoMensal(
       mesReferencia: _mesReferenciaApi,
       geracaoKwh: _geracaoInformada,
-      usinaId: widget.usinaId,
+      usinaId: _usinaSelecionadaId,
     );
 
     if (!mounted) return;
 
     if (sucesso) {
+      widget.aoSincronizarPainel?.call(_usinaSelecionadaId);
       setState(() {
         _salvando = false;
         _mostrarSucesso = true;
@@ -243,73 +264,122 @@ class _EstadoTelaLancamentoGeracao extends State<TelaLancamentoGeracao> {
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-      ),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF6F7F9),
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // cabeçalho azul escuro do admin
-            Container(
-              width: double.infinity,
-              color: const Color(0xFF0B1830),
-              child: const SafeArea(bottom: false, child: _CabecalhoAdmin()),
-            ),
-
-            // formulário e pré-visualização rolável
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                children: [
-                  // banner de confirmação verde do protótipo
-                  if (_mostrarSucesso) ...[
-                    const _BannerSucesso(),
-                    const SizedBox(height: 14),
-                  ],
-
-                  if (_mensagemErro != null) ...[
-                    _BannerErro(mensagem: _mensagemErro!),
-                    const SizedBox(height: 14),
-                  ],
-
-                  // card: dados de geração
-                  _CardDadosGeracao(
-                    periodoFormatado: _periodoFormatado,
-                    geracaoController: _geracaoController,
-                    aoClicarPeriodo: _abrirSeletorPeriodo,
-                    tarifaPadrao: _cotas.isNotEmpty
-                        ? _cotas.first.tarifaKwh
-                        : 0.69,
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // card: pré-visualização da distribuição (aparece após digitar o valor)
-                  if (_geracaoInformada > 0 && !_carregandoCotas) ...[
-                    _CardPreviaDistribuicao(
-                      cotas: _cotas,
-                      geracaoTotalKwh: _geracaoInformada,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // botão confirmar e distribuir créditos
-                  _BotaoConfirmar(
-                    habilitado: _podeDistribuir,
-                    carregando: _salvando,
-                    aoPressionar: _confirmarEDistribuir,
-                  ),
-                ],
-              ),
-            ),
-          ],
+    return PopScope<String>(
+      onPopInvokedWithResult: (didPop, resultado) {
+        if (didPop) {
+          widget.aoSincronizarPainel?.call(resultado ?? _usinaSelecionadaId);
+        }
+      },
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.light.copyWith(
+          statusBarColor: Colors.transparent,
         ),
+        child: Scaffold(
+          backgroundColor: const Color(0xFFF6F7F9),
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // cabeçalho azul escuro do admin
+              Container(
+                width: double.infinity,
+                color: const Color(0xFF0B1830),
+                child: SafeArea(
+                  bottom: false,
+                  child: _CabecalhoAdmin(
+                    usinaIdSelecionada: _usinaSelecionadaId,
+                  ),
+                ),
+              ),
 
-        // barra de navegação inferior do Administrador
-        bottomNavigationBar: const _NavegacaoInferiorAdmin(),
+              // formulário e pré-visualização rolável
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  children: [
+                    // banner de confirmação verde do protótipo
+                    if (_mostrarSucesso) ...[
+                      const _BannerSucesso(),
+                      const SizedBox(height: 14),
+                    ],
+
+                    if (_mensagemErro != null) ...[
+                      _BannerErro(mensagem: _mensagemErro!),
+                      const SizedBox(height: 14),
+                    ],
+
+                    if (_usinas.isNotEmpty) ...[
+                      _CardUsinaGeracao(
+                        usinas: _usinas,
+                        usinaSelecionadaId: _usinaSelecionadaId,
+                        aoSelecionarUsina: _selecionarUsina,
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+
+                    // card: dados de geração
+                    _CardDadosGeracao(
+                      periodoFormatado: _periodoFormatado,
+                      geracaoController: _geracaoController,
+                      aoClicarPeriodo: _abrirSeletorPeriodo,
+                      tarifaPadrao: _cotas.isNotEmpty
+                          ? _cotas.first.tarifaKwh
+                          : 0.69,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    if (_carregandoCotas) ...[
+                      const _CardCarregandoCotas(),
+                      const SizedBox(height: 16),
+                    ] else if (_cotas.isEmpty && !_erroCarregamentoCotas) ...[
+                      _CardSemCotasUsina(aoCadastrarCotas: _abrirCadastroCotas),
+                      const SizedBox(height: 16),
+                    ] else if (_geracaoInformada > 0 && _cotas.isNotEmpty) ...[
+                      // card: pré-visualização da distribuição (aparece após digitar o valor)
+                      _CardPreviaDistribuicao(
+                        cotas: _cotas,
+                        geracaoTotalKwh: _geracaoInformada,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // botão confirmar e distribuir créditos
+                    _BotaoConfirmar(
+                      habilitado: _podeDistribuir,
+                      carregando: _salvando,
+                      aoPressionar: _confirmarEDistribuir,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // barra de navegação inferior do Administrador
+          bottomNavigationBar: BarraNavegacaoAdmin(
+            indiceSelecionado: 3,
+            aoMudarAba: (indice) => navegarAbaAdmin(
+              context,
+              indiceAtual: 3,
+              indiceDestino: indice,
+              nomeAdmin: widget.nomeAdmin,
+              usinaId: _usinaSelecionadaId,
+              repositorioPainel: widget.repositorioPainel,
+              repositorioEnergia: widget.repositorio,
+              repositorioUsina: widget.repositorioUsina,
+              repositorioPerfil: widget.repositorioPerfil,
+              aoSincronizarPainel: widget.aoSincronizarPainel,
+              aoRetornarComUsina: (retorno) {
+                if (retorno != null && retorno.isNotEmpty) {
+                  _usinaSelecionadaId = retorno;
+                }
+              },
+              aoRetornarParaAtual: () {
+                if (mounted) _inicializar();
+              },
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -320,7 +390,9 @@ class _EstadoTelaLancamentoGeracao extends State<TelaLancamentoGeracao> {
 // ==========================================
 
 class _CabecalhoAdmin extends StatelessWidget {
-  const _CabecalhoAdmin();
+  const _CabecalhoAdmin({this.usinaIdSelecionada});
+
+  final String? usinaIdSelecionada;
 
   @override
   Widget build(BuildContext context) {
@@ -336,7 +408,7 @@ class _CabecalhoAdmin extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: InkWell(
-                onTap: () => Navigator.of(context).pop(),
+                onTap: () => Navigator.of(context).pop(usinaIdSelecionada),
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
                   padding: const EdgeInsets.all(6),
@@ -368,6 +440,209 @@ class _CabecalhoAdmin extends StatelessWidget {
               color: Color(0xFF8F9EB3),
               fontSize: 14,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardUsinaGeracao extends StatelessWidget {
+  const _CardUsinaGeracao({
+    required this.usinas,
+    required this.usinaSelecionadaId,
+    required this.aoSelecionarUsina,
+  });
+
+  final List<Usina> usinas;
+  final String? usinaSelecionadaId;
+  final ValueChanged<String?> aoSelecionarUsina;
+
+  @override
+  Widget build(BuildContext context) {
+    final selecionada = usinas.firstWhere(
+      (u) => u.id == usinaSelecionadaId,
+      orElse: () => usinas.first,
+    );
+    final valorDropdown = usinas.any((u) => u.id == usinaSelecionadaId)
+        ? usinaSelecionadaId
+        : usinas.first.id;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E9F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.solar_power_outlined,
+                color: Color(0xFF142340),
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Usina de geração',
+                style: TextStyle(
+                  color: Color(0xFF5B6472),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (usinas.length > 1)
+            DropdownButtonFormField<String>(
+              key: const Key('seletor_usina_geracao'),
+              initialValue: valorDropdown,
+              isExpanded: true,
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFDCE2EC)),
+                ),
+              ),
+              items: [
+                for (final item in usinas)
+                  DropdownMenuItem<String>(
+                    value: item.id,
+                    child: Text(
+                      item.codigo.isNotEmpty
+                          ? '${item.nome} (${item.codigo})'
+                          : item.nome,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF142340),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+              onChanged: aoSelecionarUsina,
+            )
+          else
+            Text(
+              selecionada.codigo.isNotEmpty
+                  ? '${selecionada.nome} (${selecionada.codigo})'
+                  : selecionada.nome,
+              style: const TextStyle(
+                color: Color(0xFF142340),
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardCarregandoCotas extends StatelessWidget {
+  const _CardCarregandoCotas();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E9F0)),
+      ),
+      child: const Row(
+        children: [
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFF142340),
+            ),
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Carregando cotas da usina...',
+              style: TextStyle(
+                color: Color(0xFF5B6472),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardSemCotasUsina extends StatelessWidget {
+  const _CardSemCotasUsina({required this.aoCadastrarCotas});
+
+  final VoidCallback aoCadastrarCotas;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8EC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF4A12B).withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.info_outline, color: Color(0xFFC47A13), size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Esta usina ainda não possui membros com cotas cadastradas.',
+                  style: TextStyle(
+                    color: Color(0xFF142340),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Cadastre os membros e defina o percentual de cotas antes de distribuir créditos.',
+            style: TextStyle(
+              color: Color(0xFF5B6472),
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: aoCadastrarCotas,
+            icon: const Icon(Icons.pie_chart_outline, size: 18),
+            label: const Text('Cadastrar cotas'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF142340),
+              side: const BorderSide(color: Color(0xFF142340)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ],
@@ -787,72 +1062,6 @@ class _BotaoConfirmar extends StatelessWidget {
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
               ),
       ),
-    );
-  }
-}
-
-class _NavegacaoInferiorAdmin extends StatelessWidget {
-  const _NavegacaoInferiorAdmin();
-
-  @override
-  Widget build(BuildContext context) {
-    const itens = [
-      (Icons.home_outlined, 'Início'),
-      (Icons.desktop_windows_outlined, 'Usina'),
-      (Icons.people_outline, 'Membros'),
-      (Icons.bar_chart_outlined, 'Relatórios'),
-      (Icons.person_outline, 'Perfil'),
-    ];
-
-    return NavigationBar(
-      height: 64,
-      selectedIndex: 3,
-      onDestinationSelected: (indice) {
-        if (indice == 0) {
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          } else {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => TelaPainelAdmin(
-                  repositorio: RepositorioApiPainelAdmin(),
-                  repositorioEnergia: RepositorioApiEnergia(),
-                ),
-              ),
-            );
-          }
-        }
-      },
-      backgroundColor: Colors.white,
-      indicatorColor: Colors.transparent,
-      elevation: 6,
-      shadowColor: Colors.black12,
-      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      destinations: [
-        for (var i = 0; i < itens.length; i++)
-          NavigationDestination(
-            icon: Icon(
-              itens[i].$1,
-              color: i == 3 ? const Color(0xFF142340) : const Color(0xFF7A8795),
-            ),
-            selectedIcon: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 24,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE59828),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Icon(itens[i].$1, color: const Color(0xFF142340)),
-              ],
-            ),
-            label: itens[i].$2,
-          ),
-      ],
     );
   }
 }

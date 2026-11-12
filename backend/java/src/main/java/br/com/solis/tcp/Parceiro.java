@@ -94,11 +94,11 @@ public class Parceiro {
         if (comandoTrim.isEmpty()) {
             return new Comunicado("");
         }
-        if (comandoTrim.startsWith("CALCULAR_COTAS")) {
+        if (comandoTrim.toUpperCase(java.util.Locale.ROOT).startsWith("CALCULAR_COTAS")) {
             String payload = comandoTrim.length() > 14 ? comandoTrim.substring(14).trim() : "";
             return new PedidoCalcularCotas(payload);
         }
-        if (comandoTrim.equals("STATUS_USINA")) {
+        if (comandoTrim.equalsIgnoreCase("STATUS_USINA")) {
             return new PedidoStatusUsina();
         }
         if (comandoTrim.equalsIgnoreCase("SAIR") || comandoTrim.equalsIgnoreCase("QUIT")) {

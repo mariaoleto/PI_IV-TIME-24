@@ -9,6 +9,7 @@ import { Router } from "express";
 import {
     buscarResumoEnergia,
     buscarCotasDistribuicao,
+    salvarConsumoMensal,
     salvarLancamentoMensal,
     consultarTelemetriaTcp,
 } from "./energia_controllers";
@@ -17,6 +18,7 @@ const roteador = Router();
 
 roteador.get("/", buscarResumoEnergia);
 roteador.get("/cotas", buscarCotasDistribuicao);
+roteador.post("/consumo", salvarConsumoMensal);
 roteador.post("/lancamento", salvarLancamentoMensal);
 
 // consulta a telemetria da placa solar via Socket TCP com o Java

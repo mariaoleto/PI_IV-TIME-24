@@ -158,17 +158,32 @@ export async function obterDashboardMembro(
   const geracaoPadraoMock = [284, 312, 298, 340, 287, 310, 295, 325, 310];
   const consumoPadraoMock = [210, 225, 198, 245, 192, 218, 280, 210, 223];
 
-  // indice do mes de referencia (setembro)
-  const indiceMesAtual = 8;
+  const temConsumoBanco = consumosBanco.length > 0;
+  const temCreditoBanco = creditosBanco.length > 0;
+  const temGeracaoBanco = geracoesBanco.length > 0;
+
+  let ultimoMesNoBanco = 9;
+  for (const registro of [...geracoesBanco, ...creditosBanco, ...consumosBanco]) {
+    const ref = registro.mes_referencia?.toString() || "";
+    const match = new RegExp(`^${ano}-(\\d{2})$`).exec(ref);
+    if (match) {
+      const mesNum = Number(match[1]);
+      if (mesNum >= 1 && mesNum <= 12 && mesNum > ultimoMesNoBanco) {
+        ultimoMesNoBanco = mesNum;
+      }
+    }
+  }
+
+  // indice do mes de referencia (setembro por padrão, ou último mês com dado real)
+  const indiceMesAtual = Math.max(8, ultimoMesNoBanco - 1);
   const rotuloMesAtual = rotulosMeses[indiceMesAtual];
-  const referenciaMesAtual = `${ano}-09`;
 
   // valores iniciais 
   let saldoAcumulado = 0;
   const listaGeracaoMensal: ItemGeracaoMensal[] = [];
   const listaTodosLancamentos: ItemLancamentoHistorico[] = [];
 
-  // constroi os meses ate outubro (ou ate dezembro se houver dados)
+  // constroi os meses ate o mês de referência atual
   for (let i = 0; i <= indiceMesAtual; i++) {
 
     // cria uma chave para o mes de referencia
@@ -183,7 +198,7 @@ export async function obterDashboardMembro(
     // converte a geracao mensal
     // caso nao tenha no banco um dado do mes, utiliza um do mock
     let geracaoKwh = paraNumero(docGeracao?.geracao_kwh);
-    if (geracaoKwh <= 0 && i < geracaoPadraoMock.length) {
+    if (!docGeracao && !temGeracaoBanco && i < geracaoPadraoMock.length) {
       geracaoKwh = geracaoPadraoMock[i];
     }
 
@@ -192,18 +207,20 @@ export async function obterDashboardMembro(
       docCredito?.creditos_liquidos_kwh,
       paraNumero(docCredito?.creditos_brutos_kwh),
     );
-    if (creditoMesKwh <= 0) {
+    if (!docCredito && geracaoKwh > 0) {
       creditoMesKwh = Math.round(geracaoKwh * (cotaPercentual / 100));
     }
 
     // calcula o consumo do membro
-    // caso nao tenha no banco um dado do mes, utiliza um do mock
-    let consumoKwh = paraNumero(
-      docConsumo?.consumo_kwh ??
-      docConsumo?.consumo_total_kwh ??
-      docConsumo?.total_consumo_kwh,
-    );
-    if (consumoKwh <= 0 && i < consumoPadraoMock.length) {
+    // caso nao tenha nenhum consumo real salvo ainda, utiliza o mock de demonstração
+    let consumoKwh = docConsumo
+      ? paraNumero(
+          docConsumo.consumo_kwh ??
+            docConsumo.consumo_total_kwh ??
+            docConsumo.total_consumo_kwh,
+        )
+      : 0;
+    if (!docConsumo && !temConsumoBanco && i < consumoPadraoMock.length) {
       consumoKwh = consumoPadraoMock[i];
     }
 
@@ -219,45 +236,66 @@ export async function obterDashboardMembro(
       mes_atual: i === indiceMesAtual,
     });
 
+    const usarMockLancamentoAtual =
+      !temCreditoBanco && !temConsumoBanco && !temGeracaoBanco && i === indiceMesAtual;
+
     // lista que sera usada no historico de lancamento
     listaTodosLancamentos.push({
       mes_rotulo: `${rotulo}/${ano}`,
       mes_referencia: chave,
       gerado_kwh: creditoMesKwh,
       consumo_kwh: consumoKwh,
-      // utiliza dados do banco ou dados mockeados 
-      credito_kwh: i === indiceMesAtual ? 287 : saldoMes,
-      positivo: (i === indiceMesAtual ? 287 : saldoMes) >= 0,
+      credito_kwh: usarMockLancamentoAtual ? 287 : Math.round(saldoMes),
+      positivo: (usarMockLancamentoAtual ? 287 : saldoMes) >= 0,
     });
   }
 
-  // dados do mes (mock)
+  // dados do mes
   const itemMesAtual = listaGeracaoMensal[indiceMesAtual];
-  const geradoMesAtual = itemMesAtual?.valor_kwh || 310;
+  const geradoMesAtual = itemMesAtual?.valor_kwh ?? 0;
   const consumidoMesAtual =
-    listaTodosLancamentos[indiceMesAtual]?.consumo_kwh || 223;
+    listaTodosLancamentos[indiceMesAtual]?.consumo_kwh ??
+    (!temConsumoBanco ? 223 : 0);
 
   // percentual utilizado
-  const percentualUtilizado = Math.min(
-    100,
-    Math.round((consumidoMesAtual / geradoMesAtual) * 100),
-  );
+  const percentualUtilizado =
+    geradoMesAtual > 0
+      ? Math.min(100, Math.round((consumidoMesAtual / geradoMesAtual) * 100))
+      : 0;
 
   // creditos disponiveis
-  const creditosDisponiveis = saldoAcumulado > 0 ? Math.round(saldoAcumulado) : 287;
+  const creditosDisponiveis =
+    temCreditoBanco || temConsumoBanco || temGeracaoBanco
+      ? Math.max(0, Math.round(saldoAcumulado))
+      : saldoAcumulado > 0
+        ? Math.round(saldoAcumulado)
+        : 287;
 
   // co2 evitado
   const co2Evitado = Math.round(geradoMesAtual * 0.41);
 
   // economia em reais 
-  const consumoAgosto = listaTodosLancamentos[indiceMesAtual - 1]?.consumo_kwh || 210;
-  const economiaEstimada = Math.round(consumoAgosto * tarifaKwh) || 186;
+  const consumoAnterior = listaTodosLancamentos[indiceMesAtual - 1]?.consumo_kwh ?? 0;
+  const consumoParaEconomia =
+    consumidoMesAtual > 0 ? consumidoMesAtual : consumoAnterior;
+  const economiaEstimada =
+    temConsumoBanco || temCreditoBanco || temGeracaoBanco
+      ? Math.round(consumoParaEconomia * tarifaKwh)
+      : Math.round(consumoAnterior * tarifaKwh) || 186;
+
+  const temDadosNoBanco = temCreditoBanco || temConsumoBanco || temGeracaoBanco;
 
   // media de consumo 
-  const mediaDiaria = Number((consumidoMesAtual / 23).toFixed(1)) || 9.7;
+  const mediaDiaria =
+    temDadosNoBanco
+      ? Number((consumidoMesAtual / 23).toFixed(1))
+      : Number((consumidoMesAtual / 23).toFixed(1)) || 9.7;
 
   // pico de consumo
-  const picoConsumo = Number(((consumidoMesAtual / 30) * 1.91).toFixed(1)) || 14.2;
+  const picoConsumo =
+    temDadosNoBanco
+      ? Number(((consumidoMesAtual / 30) * 1.91).toFixed(1))
+      : Number(((consumidoMesAtual / 30) * 1.91).toFixed(1)) || 14.2;
   const picoData = "13 set";
 
   // inverte a lista de lancamentos 
@@ -266,8 +304,8 @@ export async function obterDashboardMembro(
     .reverse()
     .slice(0, 4);
 
-  // ajuste dos dados 
-  if (ultimosLancamentos.length >= 4 && !creditosBanco.length) {
+  // ajuste dos dados somente quando toda a base ainda está sem lançamentos reais
+  if (ultimosLancamentos.length >= 4 && !temDadosNoBanco) {
     ultimosLancamentos[0].credito_kwh = 287;
     ultimosLancamentos[0].positivo = true;
 

@@ -5,6 +5,15 @@ part of 'usina_page.dart';
 mixin _UsinaPageContrato on _UsinaPageStateBase {
   @override
   Widget _telaContrato() {
+    final valorSelecionado =
+        _usinas.any((u) => u['id'] == _usinaSelecionadaId)
+            ? _usinaSelecionadaId
+            : (_usinas.isEmpty ? null : _usinas.first['id'] as String);
+    final temContrato = _usaApi
+        ? _contratoAtual != null
+        : _documento != 'Nenhum documento selecionado' &&
+            _documento != 'Nenhum contrato enviado';
+
     return Column(
       children: [
         _cabecalho('Contrato do Consórcio', 'Documento vinculado à usina'),
@@ -19,22 +28,21 @@ mixin _UsinaPageContrato on _UsinaPageStateBase {
                     _rotulo('USINA VINCULADA'),
                     const SizedBox(height: 7),
                     DropdownButtonFormField<String>(
-                      value: _usinas.isEmpty
-                          ? null
-                          : _usinas.last['nome'] as String,
+                      key: ValueKey('contrato-usina-$valorSelecionado'),
+                      initialValue: valorSelecionado,
                       decoration: _decoracao(),
                       items: _usinas
                           .map(
                             (u) => DropdownMenuItem<String>(
-                              value: u['nome'],
+                              value: u['id'] as String,
                               child: Text(
-                                u['nome'],
+                                u['nome'] as String,
                                 style: const TextStyle(fontSize: 11),
                               ),
                             ),
                           )
                           .toList(),
-                      onChanged: (_) {},
+                      onChanged: _selecionarUsina,
                     ),
                   ],
                 ),
@@ -90,14 +98,21 @@ mixin _UsinaPageContrato on _UsinaPageStateBase {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 3),
-                                const Text(
-                                  'PDF · Documento selecionado',
-                                  style: TextStyle(color: muted, fontSize: 9),
+                                Text(
+                                  _contratoAtual != null
+                                      ? 'PDF · ${_contratoAtual!.tamanhoBytes} bytes'
+                                      : (temContrato
+                                            ? 'PDF · Documento selecionado'
+                                            : 'Nenhum arquivo enviado'),
+                                  style: const TextStyle(
+                                    color: muted,
+                                    fontSize: 9,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                          _status('Ativo'),
+                          _status(temContrato ? 'Ativo' : 'Pendente'),
                         ],
                       ),
                     ),
@@ -106,22 +121,15 @@ mixin _UsinaPageContrato on _UsinaPageStateBase {
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () {
-                              setState(
-                                () =>
-                                    _documento = 'novo-contrato-consorcio.pdf',
-                              );
-                              _mensagem('Documento atualizado (demonstração).');
-                            },
-                            child: const Text('Substituir'),
+                            onPressed: _salvando ? null : _substituirContrato,
+                            child: Text(temContrato ? 'Substituir' : 'Enviar PDF'),
                           ),
                         ),
                         const SizedBox(width: 9),
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () => setState(
-                              () => _documento = 'Nenhum documento selecionado',
-                            ),
+                            onPressed:
+                                (_salvando || !temContrato) ? null : _removerContrato,
                             style: OutlinedButton.styleFrom(
                               foregroundColor: const Color(0xFFE35E64),
                               side: const BorderSide(color: Color(0xFFF3C6C8)),
@@ -161,10 +169,7 @@ mixin _UsinaPageContrato on _UsinaPageStateBase {
             ],
           ),
         ),
-        _botaoInferior('Salvar contrato', () {
-          setState(() => _screen = 0);
-          _mensagem('Contrato salvo com sucesso.');
-        }),
+        _botaoInferior('Salvar contrato', _concluirContrato),
       ],
     );
   }

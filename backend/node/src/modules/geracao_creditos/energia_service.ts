@@ -10,8 +10,11 @@ import {
   buscarCotaMaisRecente,
   buscarCreditosMensais,
   buscarGeracoesMensais,
+  buscarMembroPorIdOuEmail,
+  buscarUsinaFallback,
   DocumentoFlexivel,
   buscarTodasCotasComMembros,
+  salvarOuAtualizarConsumo,
   salvarOuAtualizarGeracao,
   salvarOuAtualzarCredito,
 } from "./energia_repo";
@@ -50,11 +53,31 @@ export type TelemetriaUsinaTcp = {
   mensagem_erro?: string;
 };
 
+// define os parametros de busca dos dados para o resumo
+// usa o id do membro ou email, para pegar os dados exatos 
+export type DepsEnergia = {
+  buscarMembro?: (parametros: {
+    membroId?: string;
+    email?: string;
+  }) => Promise<DocumentoFlexivel | null>;
+  buscarCota?: (parametros: {
+    usinaId?: string;
+    membroId?: string;
+  }) => Promise<DocumentoFlexivel | null>;
+  buscarUsinaFallback?: () => Promise<DocumentoFlexivel | null>;
+  buscarGeracoes?: typeof buscarGeracoesMensais;
+  buscarCreditos?: typeof buscarCreditosMensais;
+  buscarConsumos?: typeof buscarConsumosMensais;
+  salvarConsumo?: typeof salvarOuAtualizarConsumo;
+};
+
 type ParametrosResumoEnergia = {
   ano?: string;
   usinaId?: string;
   membroId?: string;
+  email?: string;
   enviarTcp?: EnviarComandoTcpFn;
+  deps?: DepsEnergia;
 };
 
 export function interpretarTelemetriaUsina(respostaJava: string): TelemetriaUsinaTcp {
@@ -152,17 +175,42 @@ export function agruparConsumosPorMes(consumos: DocumentoFlexivel[]) {
 // monta e retorna o resumo dos dados da energia, conforme os parametros (ano, id usina e id membro)
 // usados nos objetos ResumoEnergia e MesEnergia
 export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
+  const deps = parametros.deps ?? {};
+  const fnBuscarMembro = deps.buscarMembro ?? buscarMembroPorIdOuEmail;
+  const fnBuscarCota = deps.buscarCota ?? buscarCotaMaisRecente;
+  const fnBuscarUsinaFallback = deps.buscarUsinaFallback ?? buscarUsinaFallback;
+  const fnBuscarGeracoes = deps.buscarGeracoes ?? buscarGeracoesMensais;
+  const fnBuscarCreditos = deps.buscarCreditos ?? buscarCreditosMensais;
+  const fnBuscarConsumos = deps.buscarConsumos ?? buscarConsumosMensais;
 
   // atribui os valores as variaveis 
   const ano = paraNumero(parametros.ano, new Date().getFullYear());
   const usinaIdSolicitada = parametros.usinaId;
   const membroIdSolicitado = parametros.membroId;
+  const emailSolicitado = parametros.email?.trim() || undefined;
 
-  // request da cota mais recente 
-  const cota = await buscarCotaMaisRecente({
+  // busca as informacoes do membro 
+  const membroDoc =
+    membroIdSolicitado || emailSolicitado
+      ? await fnBuscarMembro({
+        membroId: membroIdSolicitado,
+        email: emailSolicitado,
+      })
+      : null;
+
+  const membroIdInformado =
+    membroDoc?._id?.toString() ?? membroIdSolicitado;
+
+  // busca a cota do membro (ou a maior cota quando nenhum membro foi informado)
+  const cota = await fnBuscarCota({
     usinaId: usinaIdSolicitada,
-    membroId: membroIdSolicitado,
+    membroId: membroIdInformado,
   });
+
+  const usinaFallback =
+    !usinaIdSolicitada && !cota?.usina_id && !membroDoc?.usina_id
+      ? await fnBuscarUsinaFallback()
+      : null;
 
   // converte o id do usuario e da usina em string com o toString()
   // atribui o valor em variaveis 
@@ -170,9 +218,11 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
     usinaIdSolicitada ??
     (cota?.usina_id instanceof mongoose.Types.ObjectId
       ? cota.usina_id.toString()
-      : cota?.usina_id?.toString());
+      : cota?.usina_id?.toString()) ??
+    membroDoc?.usina_id?.toString() ??
+    usinaFallback?._id?.toString();
   const membroId =
-    membroIdSolicitado ??
+    membroIdInformado ??
     (cota?.membro_id instanceof mongoose.Types.ObjectId
       ? cota.membro_id.toString()
       : cota?.membro_id?.toString());
@@ -183,11 +233,11 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
 
   // monta uma promisse com um array dos dados de geracao, credito e consumo 
   const [geracoes, creditos, consumos] = await Promise.all([
-    buscarGeracoesMensais({ ano, usinaId }),
+    fnBuscarGeracoes({ ano, usinaId }),
     // se o id existir, ele busca os dados no banco com os parametros, 
     // se nao, retorna uma promisse vazia
-    membroId ? buscarCreditosMensais({ ano, usinaId, membroId }) : Promise.resolve([]),
-    membroId ? buscarConsumosMensais({ ano, usinaId, membroId }) : Promise.resolve([]),
+    membroId ? fnBuscarCreditos({ ano, usinaId, membroId }) : Promise.resolve([]),
+    membroId ? fnBuscarConsumos({ ano, usinaId, membroId }) : Promise.resolve([]),
   ]);
 
   // cria maps com os todos os dados de geracao, credito e consumo 
@@ -202,7 +252,7 @@ export async function montarResumoEnergia(parametros: ParametrosResumoEnergia) {
 
   // atribui e iniciliza os valores nas variaveis 
   const percentualCota = paraNumero(cota?.percentual);
-  const tarifaKwh = paraNumero(cota?.tarifa_kwh);
+  const tarifaKwh = paraNumero(cota?.tarifa_kwh, 0.69);
   let totalConsumoKwh = 0;
   let totalGeracaoKwh = 0;
   let saldoAcumuladoKwh = 0;
@@ -419,5 +469,90 @@ export async function registrarLancamentoMensal(dados: {
     motor_calculo: motorUtilizado,
     membros_atualizados: distribuicao.length,
     distribuicao,
+  };
+}
+
+// registra ou atualiza o consumo mensal de um membro
+export async function registrarConsumoMensal(
+  dados: {
+    mesReferencia: string;
+    consumoKwh: number;
+    membroId?: string;
+    email?: string;
+    usinaId?: string;
+  },
+  deps: DepsEnergia = {},
+) {
+  const referencia = dados.mesReferencia.trim();
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(referencia)) {
+    throw new Error("O período de referência (mes_referencia) deve estar no formato AAAA-MM.");
+  }
+  if (!Number.isFinite(dados.consumoKwh) || dados.consumoKwh < 0) {
+    throw new Error("O consumo mensal (consumo_kwh) deve ser um número maior ou igual a zero.");
+  }
+
+  // busca as informacoes do membro 
+  const fnBuscarMembro = deps.buscarMembro ?? buscarMembroPorIdOuEmail;
+  const fnBuscarCota = deps.buscarCota ?? buscarCotaMaisRecente;
+  const fnBuscarUsinaFallback = deps.buscarUsinaFallback ?? buscarUsinaFallback;
+  const fnSalvarConsumo = deps.salvarConsumo ?? salvarOuAtualizarConsumo;
+
+  const membroDoc =
+    dados.membroId || dados.email
+      ? await fnBuscarMembro({
+        membroId: dados.membroId,
+        email: dados.email,
+      })
+      : null;
+
+  const membroId = membroDoc?._id?.toString() ?? dados.membroId;
+  if (!membroId) {
+    throw new Error("Membro não identificado para registrar o consumo.");
+  }
+
+  // busca cota 
+  const cota = await fnBuscarCota({
+    usinaId: dados.usinaId,
+    membroId,
+  });
+
+  // caso nao tenha usina cadastrada, pega a primeira encontrada no sistema 
+  const usinaFallback =
+    !dados.usinaId && !cota?.usina_id && !membroDoc?.usina_id
+      ? await fnBuscarUsinaFallback()
+      : null;
+
+  // busca a usina 
+  const usinaId =
+    dados.usinaId ??
+    cota?.usina_id?.toString() ??
+    membroDoc?.usina_id?.toString() ??
+    usinaFallback?._id?.toString();
+
+  if (!usinaId) {
+    throw new Error("Nenhuma usina encontrada para vincular o consumo.");
+  }
+
+  // atribui os valores da tarifa, consumo arredondado e a economia estimada 
+  const tarifaKwh = paraNumero(cota?.tarifa_kwh, 0.69);
+  const consumoArredondado = Number(dados.consumoKwh.toFixed(1));
+  const economiaEstimadaReais = Number((consumoArredondado * tarifaKwh).toFixed(2));
+
+  // salva o consumo 
+  await fnSalvarConsumo({
+    usinaId,
+    membroId,
+    mesReferencia: referencia,
+    consumoKwh: consumoArredondado,
+    economiaEstimadaReais,
+  });
+
+  return {
+    mensagem: "Consumo mensal registrado com sucesso!",
+    membro_id: membroId,
+    usina_id: usinaId,
+    mes_referencia: referencia,
+    consumo_kwh: consumoArredondado,
+    economia_estimada_reais: economiaEstimadaReais,
   };
 }

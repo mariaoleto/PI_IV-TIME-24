@@ -43,7 +43,24 @@ function montarDeps(membroInicial: Record<string, any> | null, agora = () => new
     buscarMembroPorCpf: async (cpf) =>
       estado.membro && estado.membro.cpf === cpf ? { ...estado.membro } : null,
     criarMembro: async (dados) => {
-      estado.membro = { _id: ID, ...dados };
+      estado.membro = { _id: ID, ...dados, cadastro_concluido: true };
+      return { ...estado.membro };
+    },
+    completarPreCadastroMembro: async (membroId, dados) => {
+      if (!estado.membro || String(estado.membro._id) !== membroId) return null;
+      const hashAtual =
+        typeof estado.membro.senha_hash === "string"
+          ? estado.membro.senha_hash.trim()
+          : "";
+      if (hashAtual.length > 0) return null;
+      const { telefone, ...resto } = dados;
+      estado.membro = {
+        ...estado.membro,
+        ...resto,
+        ...(telefone ? { telefone } : {}),
+        atualizado_em: dados.ultimo_login_em,
+        cadastro_concluido: true,
+      };
       return { ...estado.membro };
     },
     registrarLogin: async () => {},
@@ -412,4 +429,101 @@ test("cadastro: sem tipo_conta (ou 'membro') cria membro; tipo inválido é recu
   assert.equal(outro.estado.membro!.tipo_usuario, "membro");
 
   assert.equal(await status(cadastrarMembro(dadosAdmin({ tipo_conta: "dono" }), montarDeps(null).deps)), 400);
+});
+
+test("cadastro: completa pré-cadastro de membro adicionado pelo admin mantendo _id, usina_id e tipo_usuario", async () => {
+  const agoraFixa = new Date("2026-11-11T23:00:00Z");
+  const usinaId = "6af4f37b19e679e0391938bf";
+  const { deps, estado } = montarDeps(
+    {
+      _id: ID,
+      nome: "Juliana",
+      email: "juliana@solis.com",
+      tipo_usuario: "membro",
+      usina_id: usinaId,
+    },
+    () => agoraFixa,
+  );
+
+  const resposta = await cadastrarMembro(
+    {
+      nome: "Juliana Silva",
+      email: "  JULIANA@solis.com ",
+      cpf: CPF_VALIDO,
+      telefone: "(19) 99888-7766",
+      senha: "segredo123",
+      tipo_conta: "admin",
+    },
+    deps,
+  );
+
+  assert.equal(resposta.usuario.id, ID);
+  assert.equal(resposta.usuario.nome, "Juliana Silva");
+  assert.equal(resposta.usuario.email, "juliana@solis.com");
+  assert.equal(resposta.usuario.tipo_usuario, "membro");
+  assert.equal(resposta.usuario.eh_admin, false);
+  assert.deepEqual(verificarToken(resposta.token), { id: ID, tipo: "membro" });
+
+  assert.equal(estado.membro!._id, ID);
+  assert.equal(estado.membro!.usina_id, usinaId);
+  assert.equal(estado.membro!.cpf, "52998224725");
+  assert.equal(estado.membro!.telefone, "19998887766");
+  assert.equal(estado.membro!.tipo_usuario, "membro");
+  assert.equal(estado.membro!.cadastro_concluido, true);
+  assert.deepEqual(estado.membro!.data_cadastro, agoraFixa);
+  assert.deepEqual(estado.membro!.ultimo_login_em, agoraFixa);
+  assert.equal(await verificarSenha("segredo123", estado.membro!.senha_hash), true);
+
+  // após concluir, novo cadastro com o mesmo e-mail passa a ser bloqueado (409)
+  assert.equal(
+    await status(
+      cadastrarMembro(
+        { nome: "Outra Pessoa", email: "juliana@solis.com", cpf: CPF_VALIDO, senha: "segredo123" },
+        deps,
+      ),
+    ),
+    409,
+  );
+
+  // login funciona normalmente com a senha recém-cadastrada
+  const login = await entrar({ email: "juliana@solis.com", senha: "segredo123" }, deps);
+  assert.equal(login.usuario.id, ID);
+});
+
+test("cadastro: recusa pré-cadastro se o CPF já pertencer a outro membro ou se houver corrida", async () => {
+  const { deps } = montarDeps({
+    _id: ID,
+    nome: "João Lucas",
+    email: "joao@solis.com",
+    tipo_usuario: "membro",
+    usina_id: "6af4f37b19e679e0391938bf",
+  });
+
+  const depsCpfDeOutro: DepsAuth = {
+    ...deps,
+    buscarMembroPorCpf: async () => ({ _id: "507f1f77bcf86cd799439099", cpf: "52998224725" }),
+  };
+  assert.equal(
+    await status(
+      cadastrarMembro(
+        { nome: "João Lucas", email: "joao@solis.com", cpf: CPF_VALIDO, senha: "segredo123" },
+        depsCpfDeOutro,
+      ),
+    ),
+    409,
+  );
+
+  const depsCorrida: DepsAuth = {
+    ...deps,
+    completarPreCadastroMembro: async () => null,
+  };
+  assert.equal(
+    await status(
+      cadastrarMembro(
+        { nome: "João Lucas", email: "joao@solis.com", cpf: CPF_VALIDO, senha: "segredo123" },
+        depsCorrida,
+      ),
+    ),
+    409,
+  );
 });

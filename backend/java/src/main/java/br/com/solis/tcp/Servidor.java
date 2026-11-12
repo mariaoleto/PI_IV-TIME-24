@@ -50,31 +50,33 @@ public class Servidor {
 
         // escaneia o que é digitado no teclado, para verificar quando é enviado o
         // comando de desativar
-        Scanner teclado = new Scanner(System.in);
-        for (;;) {
-            System.out.println("O servidor esta ativo! Para desativa-lo, digite \"desativar\":");
-            System.out.print("> ");
-            String comando = null;
-            if (teclado.hasNextLine()) {
-                comando = teclado.nextLine();
-            }
-            if (comando != null && comando.trim().equalsIgnoreCase("desativar")) {
-                synchronized (usuarios) {
-                    ComunicadoDeDesligamento desligamento = new ComunicadoDeDesligamento();
-                    for (Parceiro usuario : usuarios) {
-                        try {
-                            // envia a mensagem de desligamento para todos os usuários
-                            usuario.receba(desligamento);
-                            // desconecta
-                            usuario.adeus();
-                        } catch (Exception erro) {
+        try (Scanner teclado = new Scanner(System.in)) {
+            for (;;) {
+                System.out.println("O servidor esta ativo! Para desativa-lo, digite \"desativar\":");
+                System.out.print("> ");
+                if (!teclado.hasNextLine()) {
+                    System.out.println("Entrada padrao encerrada; servidor TCP permanece ativo na porta " + porta + ".");
+                    break;
+                }
+                String comando = teclado.nextLine();
+                if (comando != null && comando.trim().equalsIgnoreCase("desativar")) {
+                    synchronized (usuarios) {
+                        ComunicadoDeDesligamento desligamento = new ComunicadoDeDesligamento();
+                        for (Parceiro usuario : usuarios) {
+                            try {
+                                // envia a mensagem de desligamento para todos os usuários
+                                usuario.receba(desligamento);
+                                // desconecta
+                                usuario.adeus();
+                            } catch (Exception erro) {
+                            }
                         }
                     }
+                    System.out.println("O servidor foi desativado com sucesso!");
+                    System.exit(0);
+                } else {
+                    System.err.println("Comando invalido!\n");
                 }
-                System.out.println("O servidor foi desativado com sucesso!");
-                System.exit(0);
-            } else {
-                System.err.println("Comando invalido!\n");
             }
         }
     }

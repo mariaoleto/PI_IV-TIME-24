@@ -75,6 +75,7 @@ const membroSchema = new Schema(
     telefone: String, // somente dígitos, ex.: "19999998888" (módulo perfil)
     senha_hash: String, // hash scrypt da senha (módulo perfil). nunca devolvido pela API
     data_cadastro: Date, // usado no "Membro desde" do perfil
+    cadastro_concluido: Boolean,
     senha_alterada_em: Date,
     atualizado_em: Date,
     ultimo_login_em: Date, // módulo auth

@@ -13,6 +13,7 @@ import {
   GeracaoMensal,
   Membro,
 } from "./energia_model";
+import { Usina } from "../painel_admin/painel_model";
 
 export type DocumentoFlexivel = Record<string, unknown>;
 
@@ -163,6 +164,69 @@ export function salvarOuAtualizarGeracao(parametros: {
       },
     },
     { upsert: true, new: true }, // cria se nao existir e retorna o novo 
+  ).lean<DocumentoFlexivel>();
+}
+
+function escaparRegex(texto: string) {
+  return texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// busca membro por id ou email (case-insensitive)
+export async function buscarMembroPorIdOuEmail(parametros: {
+  membroId?: string;
+  email?: string;
+}): Promise<DocumentoFlexivel | null> {
+  if (parametros.membroId && mongoose.Types.ObjectId.isValid(parametros.membroId)) {
+    const porId = await Membro.findById(
+      new mongoose.Types.ObjectId(parametros.membroId),
+    ).lean<DocumentoFlexivel>();
+    if (porId) return porId;
+  }
+
+  if (parametros.email && parametros.email.trim().length > 0) {
+    const emailLimpo = escaparRegex(parametros.email.trim());
+    const porEmail = await Membro.findOne({
+      email: new RegExp(`^${emailLimpo}$`, "i"),
+    }).lean<DocumentoFlexivel>();
+    if (porEmail) return porEmail;
+  }
+
+  return null;
+}
+
+// busca uma usina ativa (ou primeira cadastrada) como fallback
+export async function buscarUsinaFallback(): Promise<DocumentoFlexivel | null> {
+  const ativa = await Usina.findOne({ ativa: { $ne: false } })
+    .sort({ _id: 1 })
+    .lean<DocumentoFlexivel>();
+  if (ativa) return ativa;
+  return Usina.findOne().sort({ _id: 1 }).lean<DocumentoFlexivel>();
+}
+
+// salva ou atualiza o consumo mensal de um membro
+export function salvarOuAtualizarConsumo(parametros: {
+  usinaId: string;
+  membroId: string;
+  mesReferencia: string;
+  consumoKwh: number;
+  economiaEstimadaReais?: number;
+}) {
+  return ConsumosMensais.findOneAndUpdate(
+    {
+      membro_id: idObjeto(parametros.membroId, "membro_id"),
+      mes_referencia: parametros.mesReferencia,
+    },
+    {
+      $set: {
+        usina_id: idObjeto(parametros.usinaId, "usina_id"),
+        consumo_kwh: parametros.consumoKwh,
+        ...(parametros.economiaEstimadaReais !== undefined
+          ? { economia_estimada_reais: parametros.economiaEstimadaReais }
+          : {}),
+        data_lancamento: new Date(),
+      },
+    },
+    { upsert: true, new: true },
   ).lean<DocumentoFlexivel>();
 }
 

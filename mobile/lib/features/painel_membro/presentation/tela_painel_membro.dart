@@ -70,26 +70,34 @@ class _EstadoTelaPainelMembro extends State<TelaPainelMembro> {
   void _aoSelecionarAba(int indice) {
     if (indice == 1) {
       // Navega para a tela de Energia (que também tem a aba Perfil, por isso recebe os mesmos dados)
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TelaEnergia(
-            repositorio: RepositorioApiEnergia(),
-            emailMembro: _emailMembro,
-            aoPerfilAtualizado: _aoPerfilAtualizado,
-          ),
-        ),
-      );
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(
+              builder: (_) => TelaEnergia(
+                repositorio: RepositorioApiEnergia(),
+                emailMembro: _emailMembro,
+                aoPerfilAtualizado: _aoPerfilAtualizado,
+              ),
+            ),
+          )
+          .then((_) {
+            if (mounted) _atualizar();
+          });
     }
     if (indice == 2) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TelaRelatorios(
-            repositorio: RepositorioApiRelatorios(),
-            emailMembro: _emailMembro,
-            aoPerfilAtualizado: _aoPerfilAtualizado,
-          ),
-        ),
-      );
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(
+              builder: (_) => TelaRelatorios(
+                repositorio: RepositorioApiRelatorios(),
+                emailMembro: _emailMembro,
+                aoPerfilAtualizado: _aoPerfilAtualizado,
+              ),
+            ),
+          )
+          .then((_) {
+            if (mounted) _atualizar();
+          });
     }
     if (indice == 3) {
       abrirTelaPerfil(
@@ -892,6 +900,7 @@ class _CartaoTelemetriaTcp extends StatefulWidget {
 class _EstadoCartaoTelemetriaTcp extends State<_CartaoTelemetriaTcp> {
   bool _carregando = true;
   bool _online = false;
+  String _usina = 'Usina Solis 1';
   String _potencia = '14.2 kW';
   String _tensao = '220V';
 
@@ -902,17 +911,24 @@ class _EstadoCartaoTelemetriaTcp extends State<_CartaoTelemetriaTcp> {
   }
 
   Future<void> _buscarTelemetria() async {
+    if (mounted) {
+      setState(() => _carregando = true);
+    }
     try {
       final uri = Uri.parse(
         '${RepositorioApiPainelMembro.urlPadrao}/energia/telemetria-tcp',
       );
       final resposta = await http
           .get(uri, headers: {'Accept': 'application/json'})
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 6));
 
       if (resposta.statusCode == 200) {
         final mapa = jsonDecode(utf8.decode(resposta.bodyBytes));
         final telemetria = mapa['telemetria']?.toString() ?? '';
+        final detalhes = mapa['detalhes'];
+        final usinaBruta = detalhes is Map
+            ? detalhes['usina']?.toString()
+            : null;
 
         String pot = '14.2 kW';
         String tens = '220V';
@@ -929,9 +945,15 @@ class _EstadoCartaoTelemetriaTcp extends State<_CartaoTelemetriaTcp> {
           tens = matchTens.group(1) ?? tens;
         }
 
+        final usinaFormatada =
+            (usinaBruta != null && usinaBruta.trim().isNotEmpty)
+            ? 'Usina ${usinaBruta.replaceAll('_', ' ')}'
+            : 'Usina Solis 1';
+
         if (mounted) {
           setState(() {
             _online = mapa['status_servidor_tcp'] == 'online';
+            _usina = usinaFormatada;
             _potencia = pot;
             _tensao = tens;
             _carregando = false;
@@ -991,9 +1013,11 @@ class _EstadoCartaoTelemetriaTcp extends State<_CartaoTelemetriaTcp> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Telemetria TCP · Usina Solis 1',
-                  style: TextStyle(
+                Text(
+                  'Telemetria TCP · $_usina',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: Color(0xFF64748B),
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
@@ -1004,8 +1028,10 @@ class _EstadoCartaoTelemetriaTcp extends State<_CartaoTelemetriaTcp> {
                   _online
                       ? '$_potencia · $_tensao'
                       : (_carregando
-                            ? 'Consultando inversor...'
-                            : 'Inversor em espera'),
+                            ? 'Consultando servidor TCP...'
+                            : 'Servidor Java offline (5050)'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Color(0xFF142340),
                     fontSize: 13.5,
@@ -1016,42 +1042,45 @@ class _EstadoCartaoTelemetriaTcp extends State<_CartaoTelemetriaTcp> {
             ),
           ),
           // Chip discreto com o status da conexão
-          InkWell(
-            onTap: _buscarTelemetria,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _online
-                    ? const Color(0xFFECFDF5)
-                    : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: _online
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFF94A3B8),
-                      shape: BoxShape.circle,
+          Tooltip(
+            message: 'Toque para atualizar a telemetria TCP',
+            child: InkWell(
+              onTap: _buscarTelemetria,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _online
+                      ? const Color(0xFFECFDF5)
+                      : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: _online
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFF94A3B8),
+                        shape: BoxShape.circle,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    _online ? 'Java TCP' : 'Offline',
-                    style: TextStyle(
-                      color: _online
-                          ? const Color(0xFF047857)
-                          : const Color(0xFF64748B),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(width: 5),
+                    Text(
+                      _online ? 'Java TCP' : 'Offline',
+                      style: TextStyle(
+                        color: _online
+                            ? const Color(0xFF047857)
+                            : const Color(0xFF64748B),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

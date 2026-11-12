@@ -5,6 +5,17 @@ part of 'usina_page.dart';
 mixin _UsinaPageCadastro on _UsinaPageStateBase {
   @override
   Widget _telaCadastro() {
+    const baseDistribuidoras = [
+      'Enel',
+      'CPFL',
+      'Energisa',
+      'Neoenergia',
+      'Outra',
+    ];
+    final opcoesDistribuidora = baseDistribuidoras.contains(_distribuidora)
+        ? baseDistribuidoras
+        : [...baseDistribuidoras, _distribuidora];
+
     return Column(
       children: [
         _cabecalho('Cadastro da Usina', 'Dados gerais e configuração'),
@@ -24,33 +35,35 @@ mixin _UsinaPageCadastro on _UsinaPageStateBase {
                       _potenciaController,
                       hint: 'Ex.: 42',
                       sufixo: 'kWp',
-                      teclado: TextInputType.number,
+                      teclado: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                     ),
                     const SizedBox(height: 13),
                     _rotulo('DISTRIBUIDORA'),
                     DropdownButtonFormField<String>(
-                      value: _distribuidora,
+                      key: ValueKey('distribuidora-$_distribuidora'),
+                      initialValue: _distribuidora,
                       decoration: _decoracao(),
-                      items:
-                          const [
-                                'Enel',
-                                'CPFL',
-                                'Energisa',
-                                'Neoenergia',
-                                'Outra',
-                              ]
-                              .map(
-                                (e) => DropdownMenuItem(
-                                  value: e,
-                                  child: Text(
-                                    e,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                              )
-                              .toList(),
+                      items: opcoesDistribuidora
+                          .map(
+                            (e) => DropdownMenuItem(
+                              value: e,
+                              child: Text(
+                                e,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          )
+                          .toList(),
                       onChanged: (value) =>
                           setState(() => _distribuidora = value ?? 'Enel'),
+                    ),
+                    const SizedBox(height: 13),
+                    _rotulo('LOCALIZAÇÃO'),
+                    _campo(
+                      _localController,
+                      hint: 'Ex.: Campinas, SP (opcional)',
                     ),
                   ],
                 ),
@@ -65,26 +78,43 @@ mixin _UsinaPageCadastro on _UsinaPageStateBase {
                     : _potenciaController.text,
                 'distribuidora': _distribuidora,
                 'status': 'Pré-visualização',
-                'codigo': 'Novo cadastro',
-                'local': 'Não informado',
+                'codigo': _editingIndex != null && _editingIndex! < _usinas.length
+                    ? _usinas[_editingIndex!]['codigo']
+                    : 'Novo cadastro',
+                'local': _localController.text.trim().isEmpty
+                    ? 'Não informado'
+                    : _localController.text.trim(),
               }),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      'Minhas usinas',
-                      style: TextStyle(
-                        color: navy,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Minhas usinas',
+                          style: TextStyle(
+                            color: navy,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Text(
+                          _usinas.length == 1
+                              ? '1 unidade cadastrada'
+                              : '${_usinas.length} unidades cadastradas',
+                          style: const TextStyle(color: muted, fontSize: 10),
+                        ),
+                      ],
                     ),
                   ),
-                  Text(
-                    '${_usinas.length} unidades cadastradas',
-                    style: const TextStyle(color: muted, fontSize: 10),
-                  ),
+                  if (_editingIndex != null)
+                    TextButton.icon(
+                      onPressed: () => _abrirCadastro(),
+                      icon: const Icon(Icons.add, size: 16),
+                      label: const Text('Nova usina'),
+                    ),
                 ],
               ),
               const SizedBox(height: 9),
@@ -134,8 +164,9 @@ mixin _UsinaPageCadastro on _UsinaPageStateBase {
                                     color: Color(0xFFF3C6C8),
                                   ),
                                 ),
-                                onPressed: () =>
-                                    setState(() => _usinas.removeAt(index)),
+                                onPressed: _salvando
+                                    ? null
+                                    : () => _excluirUsina(index),
                                 child: const Text('Excluir'),
                               ),
                             ),

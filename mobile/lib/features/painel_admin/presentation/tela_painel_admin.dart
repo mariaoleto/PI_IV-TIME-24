@@ -2,12 +2,19 @@
 // tela inicial do administrador: saudação, card da usina ativa,
 // menu de gerenciamento, alertas ativos e próximo lançamento pendente
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../geracao_creditos/domain/repositorio_energia.dart';
 import '../../geracao_creditos/presentation/tela_lancamento_geracao.dart';
+import '../../gestao/data/modelos_usina.dart';
+import '../../gestao/data/repositorio_usina.dart';
+import '../../gestao/presentation/usina_page.dart';
+import '../../perfil/domain/repositorio_perfil.dart';
 import '../domain/repositorio_painel_admin.dart';
+import 'barra_navegacao_admin.dart';
 
 const Color _corFundoEscuro = Color(0xFF0B1830);
 const Color _corPrimaria = Color(0xFF142340);
@@ -19,6 +26,8 @@ class TelaPainelAdmin extends StatefulWidget {
     super.key,
     required this.repositorio,
     required this.repositorioEnergia,
+    this.repositorioUsina,
+    this.repositorioPerfil,
     this.nomeAdmin,
     this.usinaId,
     this.aoAbrirCadastroUsina,
@@ -28,13 +37,14 @@ class TelaPainelAdmin extends StatefulWidget {
 
   final RepositorioPainelAdmin repositorio;
   final RepositorioEnergia repositorioEnergia;
+  final RepositorioUsina? repositorioUsina;
+  final RepositorioPerfil? repositorioPerfil;
 
   // nome exibido na saudação; quando ausente, mostra apenas "Administrador"
   final String? nomeAdmin;
   final String? usinaId;
 
-  // telas de cadastro pertencem a outros módulos; enquanto não forem ligadas,
-  // o item do menu avisa que ainda não está disponível
+  // callbacks opcionais para testes ou fluxos customizados; por padrão abrem UsinaPage
   final VoidCallback? aoAbrirCadastroUsina;
   final VoidCallback? aoAbrirCadastroCotas;
 
@@ -47,13 +57,30 @@ class TelaPainelAdmin extends StatefulWidget {
 
 class _EstadoTelaPainelAdmin extends State<TelaPainelAdmin> {
   PainelAdmin? _painel;
+  List<Usina> _usinas = const [];
+  String? _usinaIdSelecionada;
+  bool _recarregamentoAgendado = false;
   String? _erro;
   bool _carregando = true;
+
+  bool get _deveListarUsinas =>
+      widget.repositorioUsina != null ||
+      widget.repositorio is RepositorioApiPainelAdmin;
 
   @override
   void initState() {
     super.initState();
+    _usinaIdSelecionada = widget.usinaId;
     _carregar();
+  }
+
+  Future<List<Usina>?> _buscarListaUsinasSegura() async {
+    if (!_deveListarUsinas) return null;
+    try {
+      return await (widget.repositorioUsina ?? RepositorioApiUsina()).listar();
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _carregar() async {
@@ -62,12 +89,19 @@ class _EstadoTelaPainelAdmin extends State<TelaPainelAdmin> {
       _erro = null;
     });
     try {
-      final painel = await widget.repositorio.buscarPainel(
-        usinaId: widget.usinaId,
-      );
+      final resultados = await Future.wait<dynamic>([
+        widget.repositorio.buscarPainel(usinaId: _usinaIdSelecionada),
+        _buscarListaUsinasSegura(),
+      ]);
+      final painel = resultados[0] as PainelAdmin;
+      final usinas = resultados[1] as List<Usina>?;
       if (!mounted) return;
       setState(() {
         _painel = painel;
+        _usinaIdSelecionada ??= painel.usina.id;
+        if (usinas != null) {
+          _usinas = usinas;
+        }
         _carregando = false;
       });
     } catch (erro) {
@@ -86,23 +120,113 @@ class _EstadoTelaPainelAdmin extends State<TelaPainelAdmin> {
     return 'Boa noite';
   }
 
-  void _avisarEmBreve(String nome) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$nome ainda não está disponível.')),
+  String? get _usinaIdEfetivo => _usinaIdSelecionada ?? _painel?.usina.id;
+
+  void _agendarRecarregamento() {
+    if (_recarregamentoAgendado || !mounted) return;
+    _recarregamentoAgendado = true;
+    scheduleMicrotask(() {
+      _recarregamentoAgendado = false;
+      if (mounted) _carregar();
+    });
+  }
+
+  void _sincronizarPainel([String? novaUsinaId]) {
+    if (!mounted) return;
+    if (novaUsinaId != null && novaUsinaId.isNotEmpty) {
+      _usinaIdSelecionada = novaUsinaId;
+    }
+    _agendarRecarregamento();
+  }
+
+  void _selecionarUsina(String? novoId) {
+    if (novoId == null || novoId.isEmpty || novoId == _usinaIdEfetivo) {
+      return;
+    }
+    setState(() {
+      _usinaIdSelecionada = novoId;
+    });
+    _carregar();
+  }
+
+  // abre a gestão da usina/cotas e, ao voltar, recarrega o painel
+  Future<void> _abrirGestaoUsina(int telaInicial) async {
+    final retorno = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
+        builder: (_) => UsinaPage(
+          repositorio: widget.repositorioUsina ?? RepositorioApiUsina(),
+          telaInicial: telaInicial,
+          usinaIdInicial: _usinaIdEfetivo,
+          nomeAdmin: widget.nomeAdmin,
+          repositorioPainel: widget.repositorio,
+          repositorioEnergia: widget.repositorioEnergia,
+          repositorioPerfil: widget.repositorioPerfil,
+          aoSincronizarPainel: _sincronizarPainel,
+        ),
+      ),
     );
+    if (!mounted) return;
+    if (retorno != null && retorno.isNotEmpty) {
+      _usinaIdSelecionada = retorno;
+    }
+    _agendarRecarregamento();
   }
 
   // abre o registro de geração e, ao voltar, recarrega o painel
   Future<void> _abrirRegistro() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
+    final retorno = await Navigator.of(context).push<String>(
+      MaterialPageRoute<String>(
         builder: (_) => TelaLancamentoGeracao(
           repositorio: widget.repositorioEnergia,
-          usinaId: widget.usinaId ?? _painel?.usina.id,
+          usinaId: _usinaIdEfetivo,
+          nomeAdmin: widget.nomeAdmin,
+          repositorioPainel: widget.repositorio,
+          repositorioUsina: widget.repositorioUsina,
+          repositorioPerfil: widget.repositorioPerfil,
+          aoSincronizarPainel: _sincronizarPainel,
         ),
       ),
     );
-    if (mounted) _carregar();
+    if (!mounted) return;
+    if (retorno != null && retorno.isNotEmpty) {
+      _usinaIdSelecionada = retorno;
+    }
+    _agendarRecarregamento();
+  }
+
+  void _selecionarAba(int indice) {
+    if (indice == 1) {
+      _abrirGestaoUsina(0);
+    } else if (indice == 2) {
+      final acao = widget.aoAbrirCadastroCotas;
+      if (acao != null) {
+        acao();
+      } else {
+        _abrirGestaoUsina(2);
+      }
+    } else if (indice == 3) {
+      _abrirRegistro();
+    } else if (indice == 4) {
+      navegarAbaAdmin(
+        context,
+        indiceAtual: 0,
+        indiceDestino: 4,
+        nomeAdmin: widget.nomeAdmin,
+        usinaId: _usinaIdEfetivo,
+        repositorioPainel: widget.repositorio,
+        repositorioEnergia: widget.repositorioEnergia,
+        repositorioUsina: widget.repositorioUsina,
+        repositorioPerfil: widget.repositorioPerfil,
+        aoSincronizarPainel: _sincronizarPainel,
+        aoRetornarComUsina: (retorno) {
+          if (!mounted) return;
+          if (retorno != null && retorno.isNotEmpty) {
+            _usinaIdSelecionada = retorno;
+          }
+        },
+        aoRetornarParaAtual: _agendarRecarregamento,
+      );
+    }
   }
 
   @override
@@ -129,19 +253,9 @@ class _EstadoTelaPainelAdmin extends State<TelaPainelAdmin> {
             Expanded(child: _corpo()),
           ],
         ),
-        bottomNavigationBar: _BarraNavegacaoAdmin(
+        bottomNavigationBar: BarraNavegacaoAdmin(
           indiceSelecionado: 0,
-          aoMudarAba: (indice) {
-            if (indice == 1) {
-              _avisarEmBreve('Cadastro da Usina');
-            } else if (indice == 2) {
-              _avisarEmBreve('Cadastro de Cotas');
-            } else if (indice == 3) {
-              _abrirRegistro();
-            } else if (indice == 4) {
-              _avisarEmBreve('Perfil');
-            }
-          },
+          aoMudarAba: _selecionarAba,
         ),
       ),
     );
@@ -158,6 +272,8 @@ class _EstadoTelaPainelAdmin extends State<TelaPainelAdmin> {
       return _EstadoErro(
         mensagem: _erro ?? 'Não foi possível carregar o painel.',
         aoTentarNovamente: _carregar,
+        aoCadastrarUsina:
+            widget.aoAbrirCadastroUsina ?? () => _abrirGestaoUsina(1),
       );
     }
 
@@ -173,7 +289,11 @@ class _EstadoTelaPainelAdmin extends State<TelaPainelAdmin> {
             _BannerAviso(mensagem: _erro!),
             const SizedBox(height: 14),
           ],
-          _CartaoUsinaAtiva(painel: painel),
+          _CartaoUsinaAtiva(
+            painel: painel,
+            usinas: _usinas,
+            aoSelecionarUsina: _selecionarUsina,
+          ),
           const SizedBox(height: 22),
           const _TituloSecao('Gerenciamento'),
           const SizedBox(height: 10),
@@ -182,16 +302,14 @@ class _EstadoTelaPainelAdmin extends State<TelaPainelAdmin> {
             titulo: 'Cadastro da Usina',
             subtitulo: 'Dados e capacidade da usina',
             aoPressionar:
-                widget.aoAbrirCadastroUsina ??
-                () => _avisarEmBreve('Cadastro da Usina'),
+                widget.aoAbrirCadastroUsina ?? () => _abrirGestaoUsina(1),
           ),
           _ItemMenu(
             icone: Icons.pie_chart_outline,
             titulo: 'Cadastro de Cotas',
             subtitulo: 'Cotas e percentuais dos membros',
             aoPressionar:
-                widget.aoAbrirCadastroCotas ??
-                () => _avisarEmBreve('Cadastro de Cotas'),
+                widget.aoAbrirCadastroCotas ?? () => _abrirGestaoUsina(2),
           ),
           _ItemMenu(
             icone: Icons.bolt_outlined,
@@ -329,15 +447,24 @@ class _SeloAdministrador extends StatelessWidget {
 }
 
 class _CartaoUsinaAtiva extends StatelessWidget {
-  const _CartaoUsinaAtiva({required this.painel});
+  const _CartaoUsinaAtiva({
+    required this.painel,
+    this.usinas = const [],
+    this.aoSelecionarUsina,
+  });
 
   final PainelAdmin painel;
+  final List<Usina> usinas;
+  final ValueChanged<String?>? aoSelecionarUsina;
 
   @override
   Widget build(BuildContext context) {
     final usina = painel.usina;
     final mes = painel.resumoMes;
     final variacao = mes.variacaoPercentual;
+    final valorSelecionado = usinas.any((u) => u.id == usina.id)
+        ? usina.id
+        : null;
 
     final eficiencia = mes.eficienciaPercentual;
     final baseEficiencia = switch (mes.eficienciaBase) {
@@ -363,6 +490,55 @@ class _CartaoUsinaAtiva extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (usinas.length > 1) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.18),
+                ),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  key: const Key('seletor_usina_painel'),
+                  value: valorSelecionado,
+                  isExpanded: true,
+                  isDense: true,
+                  dropdownColor: _corFundoEscuro,
+                  icon: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: _corDestaque,
+                    size: 20,
+                  ),
+                  hint: const Text(
+                    'Alternar usina',
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                  ),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  items: [
+                    for (final item in usinas)
+                      DropdownMenuItem<String>(
+                        value: item.id,
+                        child: Text(
+                          item.codigo.isNotEmpty
+                              ? '${item.nome} (${item.codigo})'
+                              : item.nome,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: aoSelecionarUsina,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
           Row(
             children: [
               const Icon(Icons.wb_sunny_outlined, color: _corDestaque),
@@ -920,13 +1096,20 @@ class _BannerAviso extends StatelessWidget {
 }
 
 class _EstadoErro extends StatelessWidget {
-  const _EstadoErro({required this.mensagem, required this.aoTentarNovamente});
+  const _EstadoErro({
+    required this.mensagem,
+    required this.aoTentarNovamente,
+    this.aoCadastrarUsina,
+  });
 
   final String mensagem;
   final VoidCallback aoTentarNovamente;
+  final VoidCallback? aoCadastrarUsina;
 
   @override
   Widget build(BuildContext context) {
+    final semUsina = mensagem.toLowerCase().contains('nenhuma usina');
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -949,6 +1132,15 @@ class _EstadoErro extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            if (semUsina && aoCadastrarUsina != null) ...[
+              FilledButton.icon(
+                onPressed: aoCadastrarUsina,
+                style: FilledButton.styleFrom(backgroundColor: _corPrimaria),
+                icon: const Icon(Icons.solar_power_outlined, size: 18),
+                label: const Text('Cadastrar usina'),
+              ),
+              const SizedBox(height: 8),
+            ],
             OutlinedButton(
               onPressed: aoTentarNovamente,
               child: const Text('Tentar novamente'),
@@ -956,65 +1148,6 @@ class _EstadoErro extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _BarraNavegacaoAdmin extends StatelessWidget {
-  const _BarraNavegacaoAdmin({
-    required this.indiceSelecionado,
-    required this.aoMudarAba,
-  });
-
-  final int indiceSelecionado;
-  final ValueChanged<int> aoMudarAba;
-
-  @override
-  Widget build(BuildContext context) {
-    const itens = [
-      (Icons.home_outlined, 'Início'),
-      (Icons.desktop_windows_outlined, 'Usina'),
-      (Icons.people_outline, 'Membros'),
-      (Icons.bar_chart_outlined, 'Relatórios'),
-      (Icons.person_outline, 'Perfil'),
-    ];
-
-    return NavigationBar(
-      height: 64,
-      selectedIndex: indiceSelecionado,
-      onDestinationSelected: aoMudarAba,
-      backgroundColor: Colors.white,
-      indicatorColor: Colors.transparent,
-      elevation: 6,
-      shadowColor: Colors.black12,
-      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      destinations: [
-        for (var i = 0; i < itens.length; i++)
-          NavigationDestination(
-            icon: Icon(
-              itens[i].$1,
-              color: i == indiceSelecionado
-                  ? const Color(0xFF142340)
-                  : const Color(0xFF7A8795),
-            ),
-            selectedIcon: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 24,
-                  height: 3,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE59828),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Icon(itens[i].$1, color: const Color(0xFF142340)),
-              ],
-            ),
-            label: itens[i].$2,
-          ),
-      ],
     );
   }
 }

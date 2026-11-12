@@ -7,6 +7,7 @@
 //
 // os acessos ao banco vêm por "deps" (padrão: perfil_repo) para poderem ser trocados nos testes
 
+import { formatarLocalizacaoUsina } from "../../utils/usina_formatacao";
 import { gerarHashSenha, verificarSenha } from "./perfil_senha";
 import * as repoReal from "./perfil_repo";
 import type { Doc } from "./perfil_repo";
@@ -122,7 +123,9 @@ export function montarPerfil(membro: Doc, cota: Doc | null, usina: Doc | null): 
         ? {
             id: idTexto(usina._id),
             nome: String(usina.nome ?? ""),
-            localizacao: usina.localizacao ? String(usina.localizacao) : null,
+            localizacao:
+              formatarLocalizacaoUsina(usina.localizacao) ??
+              formatarLocalizacaoUsina(usina.local),
           }
         : null,
     },
@@ -153,7 +156,9 @@ export function montarContrato(
     usina: usina
       ? {
           nome: String(usina.nome ?? ""),
-          localizacao: usina.localizacao ? String(usina.localizacao) : null,
+          localizacao:
+            formatarLocalizacaoUsina(usina.localizacao) ??
+            formatarLocalizacaoUsina(usina.local),
         }
       : null,
     cota_percentual:

@@ -31,6 +31,7 @@ export type DepsAuth = {
   buscarMembroPorEmail: (email: string) => Promise<Doc | null>;
   buscarMembroPorCpf: (cpf: string) => Promise<Doc | null>;
   criarMembro: typeof repoReal.criarMembro;
+  completarPreCadastroMembro: typeof repoReal.completarPreCadastroMembro;
   registrarLogin: typeof repoReal.registrarLogin;
   salvarRecuperacao: typeof repoReal.salvarRecuperacao;
   registrarTentativaRecuperacao: typeof repoReal.registrarTentativaRecuperacao;
@@ -95,21 +96,83 @@ export async function cadastrarMembro(
   if (dados.cpf === null) {
     throw new ErroHttp(400, "Dados inválidos", { cpf: "Informe seu CPF" });
   }
-  if (await deps.buscarMembroPorEmail(dados.email)) throw jaExiste;
-  if (await deps.buscarMembroPorCpf(dados.cpf)) throw cpfJaExiste;
+
+  const membroExistente = await deps.buscarMembroPorEmail(dados.email);
+  const hashExistente =
+    typeof membroExistente?.senha_hash === "string"
+      ? membroExistente.senha_hash.trim()
+      : "";
+  if (membroExistente && hashExistente.length > 0) {
+    throw jaExiste;
+  }
+
+  const donoDoCpf = await deps.buscarMembroPorCpf(dados.cpf);
+  if (
+    donoDoCpf &&
+    (!membroExistente || String(donoDoCpf._id) !== String(membroExistente._id))
+  ) {
+    throw cpfJaExiste;
+  }
+
+  const agora = deps.agora();
+  const senhaHash = await gerarHashSenha(dados.senha);
 
   try {
+    if (membroExistente) {
+      if (
+        typeof membroExistente.cpf === "string" &&
+        membroExistente.cpf.length > 0 &&
+        membroExistente.cpf !== dados.cpf
+      ) {
+        throw cpfJaExiste;
+      }
+
+      const tipoFinal: "membro" | "admin" =
+        membroExistente.tipo_usuario === "admin"
+          ? "admin"
+          : membroExistente.tipo_usuario === "membro"
+            ? "membro"
+            : dados.tipo;
+
+      const dataBruta = membroExistente.data_cadastro;
+      const dataCadastro =
+        dataBruta instanceof Date || typeof dataBruta === "string"
+          ? new Date(dataBruta)
+          : agora;
+
+      const atualizado = await deps.completarPreCadastroMembro(
+        String(membroExistente._id),
+        {
+          nome: dados.nome,
+          cpf: dados.cpf,
+          telefone: dados.telefone,
+          senha_hash: senhaHash,
+          tipo_usuario: tipoFinal,
+          data_cadastro: Number.isNaN(dataCadastro.getTime())
+            ? agora
+            : dataCadastro,
+          ultimo_login_em: agora,
+        },
+      );
+      if (!atualizado) {
+        throw jaExiste;
+      }
+      return montarResposta(atualizado);
+    }
+
     const membro = await deps.criarMembro({
       nome: dados.nome,
       email: dados.email,
       cpf: dados.cpf,
       telefone: dados.telefone,
-      senha_hash: await gerarHashSenha(dados.senha),
+      senha_hash: senhaHash,
       tipo_usuario: dados.tipo,
-      data_cadastro: deps.agora(),
+      data_cadastro: agora,
+      ultimo_login_em: agora,
     });
     return montarResposta(membro);
   } catch (erro) {
+    if (erro instanceof ErroHttp) throw erro;
     // índice único no banco (se existir) acusando e-mail ou CPF repetido
     const duplicado = erro as { code?: number; keyPattern?: Record<string, unknown> };
     if (duplicado?.code === 11000) throw duplicado.keyPattern?.cpf ? cpfJaExiste : jaExiste;

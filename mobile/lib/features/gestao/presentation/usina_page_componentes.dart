@@ -5,40 +5,31 @@ part of 'usina_page.dart';
 mixin _UsinaPageComponentes on _UsinaPageStateBase {
   @override
   Widget _navegacaoInferior() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE8EBF0))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _itemNav(Icons.home_outlined, 'Início', selecionado: false),
-          _itemNav(Icons.solar_power_outlined, 'Usina', selecionado: true),
-          _itemNav(Icons.groups_outlined, 'Membros', selecionado: false),
-          _itemNav(Icons.bar_chart_outlined, 'Relatórios', selecionado: false),
-          _itemNav(Icons.person_outline, 'Perfil', selecionado: false),
-        ],
-      ),
-    );
-  }
-
-  Widget _itemNav(IconData icon, String label, {bool selecionado = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 19, color: selecionado ? orange : muted),
-        const SizedBox(height: 3),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 9,
-            color: selecionado ? navy : muted,
-            fontWeight: selecionado ? FontWeight.w700 : FontWeight.normal,
-          ),
-        ),
-      ],
+    final indiceAtual = _screen == 2 ? 2 : 1;
+    return BarraNavegacaoAdmin(
+      indiceSelecionado: indiceAtual,
+      aoMudarAba: (destino) {
+        if (destino == 1) {
+          setState(() => _screen = 0);
+          return;
+        }
+        if (destino == 2) {
+          _abrirCotas();
+          return;
+        }
+        navegarAbaAdmin(
+          context,
+          indiceAtual: indiceAtual,
+          indiceDestino: destino,
+          nomeAdmin: widget.nomeAdmin,
+          usinaId: _usinaSelecionadaId ?? widget.usinaIdInicial,
+          repositorioPainel: widget.repositorioPainel,
+          repositorioEnergia: widget.repositorioEnergia,
+          repositorioUsina: widget.repositorio,
+          repositorioPerfil: widget.repositorioPerfil,
+          aoSincronizarPainel: widget.aoSincronizarPainel,
+        );
+      },
     );
   }
 
@@ -51,7 +42,7 @@ mixin _UsinaPageComponentes on _UsinaPageStateBase {
         width: double.infinity,
         height: 46,
         child: FilledButton(
-          onPressed: acao,
+          onPressed: _salvando ? null : acao,
           style: FilledButton.styleFrom(
             backgroundColor: navy,
             foregroundColor: Colors.white,
@@ -59,10 +50,22 @@ mixin _UsinaPageComponentes on _UsinaPageStateBase {
               borderRadius: BorderRadius.circular(11),
             ),
           ),
-          child: Text(
-            texto,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-          ),
+          child: _salvando
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  texto,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
         ),
       ),
     );
@@ -77,7 +80,7 @@ mixin _UsinaPageComponentes on _UsinaPageStateBase {
         borderRadius: BorderRadius.circular(13),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF172B4D).withOpacity(.035),
+            color: const Color(0xFF172B4D).withValues(alpha: .035),
             blurRadius: 9,
             offset: const Offset(0, 3),
           ),
