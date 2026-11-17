@@ -7,15 +7,23 @@
 
 import net from "node:net";
 
+// define a porta e o host do servidor java
+// porta = aonde vai conectar
+// host = ip do servidor 
 const PORTA_TCP_JAVA = Number(process.env.PORTA_TCP_JAVA) || 5050;
 const HOST_TCP_JAVA = process.env.HOST_TCP_JAVA || "127.0.0.1";
 
+// envia o comando para o servidor java
 export function enviarComandoTcp(comando: string, tempoLimiteMs = 3000): Promise<string> {
+    // resolve = o que acontece se der certo
+    // reject = o que acontece se der errado 
     return new Promise((resolve, reject) => {
         let resposta = "";
         let finalizado = false;
+        // cria uma conexão via socket tcp 
         const socket = new net.Socket();
 
+        // finalizações
         const concluirComSucesso = () => {
             if (finalizado) return;
             finalizado = true;
@@ -32,6 +40,7 @@ export function enviarComandoTcp(comando: string, tempoLimiteMs = 3000): Promise
 
         // define um tempo limite 
         socket.setTimeout(tempoLimiteMs);
+        // conecta usando a porta e o host definidos 
         socket.connect(PORTA_TCP_JAVA, HOST_TCP_JAVA, () => {
             // envia o comando com \n do jeito que o java espera
             socket.write(`${comando.trim()}\n`);
@@ -45,6 +54,7 @@ export function enviarComandoTcp(comando: string, tempoLimiteMs = 3000): Promise
             }
         });
 
+        // quando o servidor encerra a conexão 
         socket.on("end", () => {
             if (resposta.trim().length > 0) {
                 concluirComSucesso();
